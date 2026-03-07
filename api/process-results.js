@@ -9,7 +9,7 @@
  *
  * Variables de entorno requeridas en Vercel (Settings → Environment Variables):
  *   SUPABASE_URL           → igual que VITE_SUPABASE_URL
- *   SUPABASE_SERVICE_KEY   → tu service_role key (NUNCA la anon key)
+ *   SUPABASE_SERVICE_ROLE_KEY → tu service_role key (NUNCA la anon key)
  *   ADMIN_SECRET           → string secreto que solo tú conoces (ej: "arepa2026")
  */
 
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
