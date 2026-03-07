@@ -12,7 +12,8 @@
     "clean:demo": "node scripts/clean-demo.js",
     "seed:darva": "node scripts/seed-darva.js",
     "results": "node scripts/process-results.js",
-    "test:deadline": "node scripts/set-deadline-test.js"
+    "test:deadline": "node scripts/set-deadline-test.js",
+    "reset:prod": "node scripts/reset-production.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
