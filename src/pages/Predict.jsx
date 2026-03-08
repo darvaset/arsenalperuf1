@@ -43,6 +43,8 @@ function DriverRow({ position, driver, onSelect, isTop5 }) {
   )
 }
 
+// FIX BUG-SEARCH: z-[200] para estar encima de todo, incluyendo nav bar
+// + viewport-aware para teclado en móvil
 function DriverPicker({ picks, onPick, onClose }) {
   const [search, setSearch] = useState('')
   const available = DRIVERS_2026.filter(d =>
@@ -50,31 +52,50 @@ function DriverPicker({ picks, onPick, onClose }) {
     !picks.some(p => p?.id === d.id)
   )
 
+  // Prevenir scroll del body cuando el picker está abierto
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-end">
-      <div className="bg-surface-dark w-full max-h-[70vh] rounded-t-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+    <div
+      className="fixed inset-0 bg-black/70 flex items-end"
+      style={{ zIndex: 200 }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#1F1F2B] w-full rounded-t-2xl flex flex-col border-t border-slate-700"
+        style={{ maxHeight: '70dvh', zIndex: 201 }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
           <h3 className="font-bold text-lg">Seleccionar Piloto</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div className="px-4 pt-3 pb-2">
+
+        {/* Search input */}
+        <div className="px-4 pt-3 pb-2 shrink-0">
           <input
             autoFocus
             type="text"
             placeholder="Buscar piloto..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full bg-slate-800 rounded-lg px-4 py-2 text-white outline-none focus:ring-2 focus:ring-primary placeholder-slate-500"
+            className="w-full bg-slate-800 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-primary placeholder-slate-500"
           />
         </div>
-        <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-1">
+
+        {/* Results list — scrollable, nunca detrás de nada */}
+        <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-1">
           {available.map(driver => (
             <button
               key={driver.id}
-              onClick={() => onPick(driver)}
-              className="flex items-center gap-3 w-full p-3 hover:bg-slate-800/60 rounded-lg transition-colors"
+              onPointerDown={e => { e.stopPropagation(); onPick(driver) }}
+              className="flex items-center gap-3 w-full p-3 hover:bg-slate-800/60 active:bg-slate-700 rounded-lg transition-colors"
             >
               <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: TEAM_COLORS[driver.team] ?? '#888' }} />
               <span className="text-xs font-mono text-slate-500 w-8">{driver.number}</span>
@@ -97,7 +118,7 @@ export default function Predict({ session }) {
 
   const [race, setRace]           = useState(null)
   const [picks, setPicks]         = useState(Array(10).fill(null))
-  const [editing, setEditing]     = useState(null) // index being edited
+  const [editing, setEditing]     = useState(null)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving]       = useState(false)
   const [timeLeft, setTimeLeft]   = useState('')
@@ -105,20 +126,16 @@ export default function Predict({ session }) {
 
   useEffect(() => {
     const load = async () => {
-      // Asegurar que el jugador existe en la tabla players (FK requerida)
       await supabase.from('players').upsert(
         { id: session.user.id, email: session.user.email },
         { onConflict: 'id', ignoreDuplicates: true }
       )
-
       const { data } = await supabase.from('races').select('*').eq('id', raceId).single()
       if (data) setRace(data)
 
       const { data: pred } = await supabase
-        .from('predictions')
-        .select('*')
-        .eq('race_id', raceId)
-        .eq('player_id', session.user.id)
+        .from('predictions').select('*')
+        .eq('race_id', raceId).eq('player_id', session.user.id)
         .maybeSingle()
 
       if (pred) {
@@ -158,30 +175,19 @@ export default function Predict({ session }) {
     if (picks.some(p => !p)) return
     setSaving(true)
     const pickIds = picks.map(p => p.id)
-    const payload = {
-      race_id:      raceId,
-      player_id:    session.user.id,
-      picks:        pickIds,
-      submitted_at: new Date().toISOString(),
-    }
+    const payload = { race_id: raceId, player_id: session.user.id, picks: pickIds, submitted_at: new Date().toISOString() }
     let saveError = null
     if (existingPred) {
-      const { error } = await supabase
-        .from('predictions')
+      const { error } = await supabase.from('predictions')
         .update({ picks: pickIds, submitted_at: new Date().toISOString() })
-        .eq('race_id', raceId)
-        .eq('player_id', session.user.id)
+        .eq('race_id', raceId).eq('player_id', session.user.id)
       saveError = error
     } else {
       const { error } = await supabase.from('predictions').insert(payload)
       saveError = error
     }
     setSaving(false)
-    if (saveError) {
-      console.error('Error guardando predicción:', saveError)
-      alert(`Error al guardar: ${saveError.message}`)
-      return
-    }
+    if (saveError) { alert(`Error al guardar: ${saveError.message}`); return }
     setSubmitted(true)
     navigate('/')
   }
@@ -193,8 +199,7 @@ export default function Predict({ session }) {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background-dark border-b border-slate-800">
+      <header className="sticky top-0 bg-background-dark border-b border-slate-800" style={{ zIndex: 100 }}>
         <div className="flex items-center p-4 justify-between max-w-2xl mx-auto">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="hover:bg-slate-800 p-2 rounded-full transition-colors">
@@ -219,7 +224,6 @@ export default function Predict({ session }) {
       )}
 
       <main className="max-w-2xl mx-auto p-4 pb-32">
-        {/* Top 5 */}
         <div className="mb-8">
           <div className="flex items-center mb-4 px-1">
             <h3 className="text-gold-accent text-sm font-bold uppercase tracking-wider flex items-center gap-2">
@@ -229,18 +233,12 @@ export default function Predict({ session }) {
           </div>
           <div className="space-y-3">
             {[0,1,2,3,4].map(i => (
-              <DriverRow
-                key={i}
-                position={i + 1}
-                driver={picks[i]}
-                onSelect={() => !isDeadlinePassed && setEditing(i)}
-                isTop5={true}
-              />
+              <DriverRow key={i} position={i+1} driver={picks[i]}
+                onSelect={() => !isDeadlinePassed && setEditing(i)} isTop5={true} />
             ))}
           </div>
         </div>
 
-        {/* Mid 5 */}
         <div className="mb-8">
           <div className="flex items-center mb-4 px-1">
             <h3 className="text-blue-accent text-sm font-bold uppercase tracking-wider flex items-center gap-2">
@@ -250,21 +248,16 @@ export default function Predict({ session }) {
           </div>
           <div className="space-y-3">
             {[5,6,7,8,9].map(i => (
-              <DriverRow
-                key={i}
-                position={i + 1}
-                driver={picks[i]}
-                onSelect={() => !isDeadlinePassed && setEditing(i)}
-                isTop5={false}
-              />
+              <DriverRow key={i} position={i+1} driver={picks[i]}
+                onSelect={() => !isDeadlinePassed && setEditing(i)} isTop5={false} />
             ))}
           </div>
         </div>
       </main>
 
-      {/* Bottom Submit Bar */}
       {!isDeadlinePassed && (
-        <div className="fixed bottom-[76px] left-0 right-0 bg-background-dark/90 backdrop-blur-md p-4 border-t border-slate-800">
+        <div className="fixed left-0 right-0 bg-background-dark/90 backdrop-blur-md p-4 border-t border-slate-800"
+          style={{ bottom: '76px', zIndex: 90 }}>
           <div className="max-w-2xl mx-auto">
             <button
               onClick={handleSubmit}
@@ -283,13 +276,8 @@ export default function Predict({ session }) {
         </div>
       )}
 
-      {/* Driver Picker Modal */}
       {editing !== null && (
-        <DriverPicker
-          picks={picks}
-          onPick={handlePick}
-          onClose={() => setEditing(null)}
-        />
+        <DriverPicker picks={picks} onPick={handlePick} onClose={() => setEditing(null)} />
       )}
     </div>
   )

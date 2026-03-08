@@ -44,10 +44,20 @@ export default function Dashboard({ session }) {
   const [loading, setLoading]         = useState(true)
 
   const initials = session?.user?.email?.slice(0, 2).toUpperCase() ?? 'F1'
-  const username = session?.user?.user_metadata?.username ?? session?.user?.email?.split('@')[0] ?? 'Piloto'
+  const [username, setUsername] = useState(
+    session?.user?.email?.split('@')[0] ?? 'Piloto'
+  )
 
   useEffect(() => {
     const load = async () => {
+      // Username desde tabla players
+      const { data: player } = await supabase
+        .from('players')
+        .select('username')
+        .eq('id', session.user.id)
+        .maybeSingle()
+      if (player?.username) setUsername(player.username)
+
       // Next race = primera sin resultados
       const { data: races } = await supabase
         .from('races')
