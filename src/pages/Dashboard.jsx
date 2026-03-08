@@ -29,6 +29,37 @@ const CONSTRUCTOR_COLOR_MAP = {
   'Cadillac':    'Cadillac',
 }
 
+// Mini logo de equipo con fallback a dot de color
+function TeamBadgeLogo({ team }) {
+  const [err, setErr] = useState(false)
+  const color = TEAM_COLORS[team] ?? '#888'
+  const LOGOS = {
+    'Alpine':       'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/alpine',
+    'Aston Martin': 'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/aston-martin',
+    'Audi':         'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/kick-sauber',
+    'Cadillac':     'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/haas',
+    'Ferrari':      'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/ferrari',
+    'Haas':         'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/haas',
+    'McLaren':      'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/mclaren',
+    'Mercedes':     'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/mercedes',
+    'Racing Bulls': 'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/rb',
+    'Red Bull':     'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/red-bull-racing',
+    'Williams':     'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_80/content/dam/fom-website/2018-redesign-assets/team%20logos/williams',
+  }
+  if (err || !LOGOS[team]) {
+    return <div className="rounded-sm shrink-0" style={{ width: 16, height: 10, backgroundColor: color }} />
+  }
+  return (
+    <img
+      src={LOGOS[team]}
+      alt={team}
+      onError={() => setErr(true)}
+      style={{ width: 16, height: 10, objectFit: 'contain' }}
+      className="shrink-0"
+    />
+  )
+}
+
 function Countdown({ raceDate }) {
   const [time, setTime] = useState({ days: '00', hrs: '00', min: '00' })
 
@@ -69,9 +100,10 @@ export default function Dashboard({ session }) {
   const [lastRace,    setLastRace]    = useState(null)
   const [myLastScore, setMyLastScore] = useState(null)
   const [loading,     setLoading]     = useState(true)
-  const [favTeam,     setFavTeam]     = useState(null)
-  const [f1Standings, setF1Standings] = useState({ drivers: [], constructors: [] })
-  const [standingsTab, setStandingsTab] = useState('drivers')
+  const [favTeam,       setFavTeam]       = useState(null)
+  const [hasPrediction, setHasPrediction] = useState(false)
+  const [f1Standings,   setF1Standings]   = useState({ drivers: [], constructors: [] })
+  const [standingsTab,  setStandingsTab]  = useState('drivers')
 
   const initials = session?.user?.email?.slice(0, 2).toUpperCase() ?? 'F1'
   const [username, setUsername] = useState(
@@ -99,7 +131,17 @@ export default function Dashboard({ session }) {
         .is('results', null)
         .order('race_date', { ascending: true })
         .limit(1)
-      if (races?.length) setNextRace(races[0])
+      if (races?.length) {
+        setNextRace(races[0])
+        // Verificar si ya tengo predicción para esta carrera
+        const { data: pred } = await supabase
+          .from('predictions')
+          .select('race_id')
+          .eq('race_id', races[0].id)
+          .eq('player_id', session.user.id)
+          .maybeSingle()
+        if (pred) setHasPrediction(true)
+      }
 
       // Last completed race
       const { data: completed } = await supabase
@@ -162,13 +204,14 @@ export default function Dashboard({ session }) {
               <h1 className="text-lg font-bold leading-tight">{username}</h1>
               {favTeam && (
                 <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full leading-none"
+                  className="text-[10px] font-bold pl-1.5 pr-2 py-0.5 rounded-full leading-none flex items-center gap-1.5"
                   style={{
                     backgroundColor: (TEAM_COLORS[favTeam] ?? '#888') + '25',
                     color:            TEAM_COLORS[favTeam] ?? '#888',
                     border:          `1px solid ${(TEAM_COLORS[favTeam] ?? '#888')}40`,
                   }}
                 >
+                  <TeamBadgeLogo team={favTeam} />
                   {favTeam}
                 </span>
               )}
@@ -207,7 +250,14 @@ export default function Dashboard({ session }) {
                 </div>
                 <Countdown raceDate={nextRace.race_date} />
 
-                {/* FIX: boton cambia segun estado open/closed */}
+                {/* Badge prediccion enviada */}
+                {isOpen && hasPrediction && (
+                  <div className="flex items-center gap-1.5 mb-3 text-green-400 text-xs font-semibold">
+                    <span className="material-symbols-outlined text-sm fill-icon">check_circle</span>
+                    Predicción enviada · puedes actualizarla
+                  </div>
+                )}
+
                 <button
                   onClick={() => isOpen
                     ? navigate(`/predict/${nextRace.id}`)
@@ -219,8 +269,11 @@ export default function Dashboard({ session }) {
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-300 shadow-slate-900/20'
                   }`}
                 >
-                  {isOpen ? 'Hacer mi prediccion' : 'Ver carrera'}
-                  <span className="material-symbols-outlined">chevron_right</span>
+                  {isOpen
+                    ? hasPrediction ? 'Actualizar predicción' : 'Hacer mi prediccion'
+                    : 'Ver carrera'
+                  }
+                  <span className="material-symbols-outlined">{isOpen ? (hasPrediction ? 'edit' : 'chevron_right') : 'chevron_right'}</span>
                 </button>
               </div>
               <div className="h-1.5 w-full bg-slate-800">

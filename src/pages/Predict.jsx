@@ -206,7 +206,10 @@ export default function Predict({ session }) {
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
             <div>
-              <h2 className="text-lg font-bold leading-tight tracking-tight">{race?.name ?? 'Cargando...'}</h2>
+              <h2 className="text-lg font-bold leading-tight tracking-tight">
+                {race?.country_flag && <span className="mr-1.5">{race.country_flag}</span>}
+                {race?.name ?? 'Cargando...'}
+              </h2>
               <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Predicción Oficial</p>
             </div>
           </div>
