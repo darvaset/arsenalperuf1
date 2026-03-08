@@ -1,6 +1,33 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, TEAM_COLORS } from '../lib/supabase'
+
+const JOLPICA = 'https://api.jolpi.ca/ergast/f1/2026'
+
+async function fetchF1Standings() {
+  try {
+    const [drRes, coRes] = await Promise.all([
+      fetch(`${JOLPICA}/driverStandings.json?limit=5`),
+      fetch(`${JOLPICA}/constructorStandings.json?limit=5`),
+    ])
+    const drData = await drRes.json()
+    const coData = await coRes.json()
+    const drivers = drData.MRData.StandingsTable.StandingsLists[0]?.DriverStandings ?? []
+    const constructors = coData.MRData.StandingsTable.StandingsLists[0]?.ConstructorStandings ?? []
+    return { drivers, constructors }
+  } catch { return { drivers: [], constructors: [] } }
+}
+
+// Map Jolpica constructor names -> TEAM_COLORS keys
+const CONSTRUCTOR_COLOR_MAP = {
+  'Red Bull':    'Red Bull',   'McLaren':    'McLaren',
+  'Ferrari':     'Ferrari',    'Mercedes':   'Mercedes',
+  'Aston Martin':'Aston Martin','Alpine':    'Alpine',
+  'Sauber':      'Audi',       'Audi':       'Audi',
+  'Haas':        'Haas',       'RB':         'Racing Bulls',
+  'Racing Bulls':'Racing Bulls','Williams':   'Williams',
+  'Cadillac':    'Cadillac',
+}
 
 function Countdown({ raceDate }) {
   const [time, setTime] = useState({ days: '00', hrs: '00', min: '00' })
@@ -37,11 +64,14 @@ function Countdown({ raceDate }) {
 
 export default function Dashboard({ session }) {
   const navigate = useNavigate()
-  const [nextRace, setNextRace]       = useState(null)
-  const [standings, setStandings]     = useState([])
-  const [lastRace, setLastRace]       = useState(null)
+  const [nextRace,    setNextRace]    = useState(null)
+  const [standings,   setStandings]   = useState([])
+  const [lastRace,    setLastRace]    = useState(null)
   const [myLastScore, setMyLastScore] = useState(null)
-  const [loading, setLoading]         = useState(true)
+  const [loading,     setLoading]     = useState(true)
+  const [favTeam,     setFavTeam]     = useState(null)
+  const [f1Standings, setF1Standings] = useState({ drivers: [], constructors: [] })
+  const [standingsTab, setStandingsTab] = useState('drivers')
 
   const initials = session?.user?.email?.slice(0, 2).toUpperCase() ?? 'F1'
   const [username, setUsername] = useState(
@@ -50,13 +80,17 @@ export default function Dashboard({ session }) {
 
   useEffect(() => {
     const load = async () => {
-      // Username desde tabla players
+      // Username + equipo favorito desde tabla players
       const { data: player } = await supabase
         .from('players')
-        .select('username')
+        .select('username, favorite_team')
         .eq('id', session.user.id)
         .maybeSingle()
       if (player?.username) setUsername(player.username)
+      if (player?.favorite_team) setFavTeam(player.favorite_team)
+
+      // F1 standings desde Jolpica (no bloquea el resto del load)
+      fetchF1Standings().then(setF1Standings)
 
       // Next race = primera sin resultados
       const { data: races } = await supabase
@@ -113,12 +147,32 @@ export default function Dashboard({ session }) {
       {/* Header */}
       <header className="flex items-center justify-between py-4 sticky top-0 bg-background-dark/90 backdrop-blur-md z-10">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg ring-2 ring-primary/20">
+          <div
+            className="size-10 rounded-full flex items-center justify-center text-white font-bold text-lg ring-2"
+            style={{
+              backgroundColor: favTeam ? (TEAM_COLORS[favTeam] ?? '#e00700') : '#e00700',
+              ringColor:       favTeam ? (TEAM_COLORS[favTeam] + '33') : '#e0070033',
+            }}
+          >
             {initials}
           </div>
           <div>
             <p className="text-xs text-slate-400 font-medium">Hola de nuevo!</p>
-            <h1 className="text-lg font-bold leading-tight">{username}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold leading-tight">{username}</h1>
+              {favTeam && (
+                <span
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full leading-none"
+                  style={{
+                    backgroundColor: (TEAM_COLORS[favTeam] ?? '#888') + '25',
+                    color:            TEAM_COLORS[favTeam] ?? '#888',
+                    border:          `1px solid ${(TEAM_COLORS[favTeam] ?? '#888')}40`,
+                  }}
+                >
+                  {favTeam}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <button className="size-10 flex items-center justify-center rounded-full bg-slate-800/50">
@@ -202,6 +256,75 @@ export default function Dashboard({ session }) {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* F1 Standings Widget */}
+        {(f1Standings.drivers.length > 0 || f1Standings.constructors.length > 0) && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-100">Campeonato F1 2026</h3>
+              <button onClick={() => navigate('/standings')} className="text-xs font-semibold text-primary">
+                Ver tabla
+              </button>
+            </div>
+            <div className="bg-card-dark rounded-xl border border-slate-800 overflow-hidden">
+              {/* Mini tabs */}
+              <div className="flex border-b border-slate-800">
+                {[['drivers', 'Pilotos'], ['constructors', 'Constructores']].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setStandingsTab(key)}
+                    className={`flex-1 text-xs font-bold py-2.5 transition-colors ${
+                      standingsTab === key
+                        ? 'text-primary border-b-2 border-primary'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {standingsTab === 'drivers' ? (
+                <div className="divide-y divide-slate-800">
+                  {f1Standings.drivers.slice(0,5).map((d, i) => {
+                    const teamKey = CONSTRUCTOR_COLOR_MAP[d.Constructors?.[0]?.name] ?? ''
+                    const color   = TEAM_COLORS[teamKey] ?? '#555'
+                    return (
+                      <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="text-slate-500 font-bold text-sm w-5">{d.position}</span>
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-100 truncate">
+                            {d.Driver.givenName} {d.Driver.familyName}
+                          </p>
+                          <p className="text-[10px] text-slate-500">{d.Constructors?.[0]?.name}</p>
+                        </div>
+                        <span className="font-black text-slate-100 text-sm">{d.points}</span>
+                        <span className="text-[10px] text-slate-600">pts</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-800">
+                  {f1Standings.constructors.slice(0,5).map((c, i) => {
+                    const teamKey = CONSTRUCTOR_COLOR_MAP[c.Constructor?.name] ?? ''
+                    const color   = TEAM_COLORS[teamKey] ?? '#555'
+                    return (
+                      <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="text-slate-500 font-bold text-sm w-5">{c.position}</span>
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <p className="flex-1 text-sm font-bold text-slate-100 truncate">{c.Constructor?.name}</p>
+                        <span className="font-black text-slate-100 text-sm">{c.points}</span>
+                        <span className="text-[10px] text-slate-600">pts</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </section>
         )}

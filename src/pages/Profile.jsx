@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, TEAM_COLORS } from '../lib/supabase'
+
+const TEAMS_2026 = [
+  'Alpine', 'Aston Martin', 'Audi', 'Cadillac',
+  'Ferrari', 'Haas', 'McLaren', 'Mercedes',
+  'Racing Bulls', 'Red Bull', 'Williams',
+]
+
+const TEAM_LOGOS = {
+  'Alpine':        '🔵', 'Aston Martin': '🟢', 'Audi':          '⚪',
+  'Cadillac':      '🩷', 'Ferrari':      '🔴', 'Haas':          '⬜',
+  'McLaren':       '🟠', 'Mercedes':     '🩵', 'Racing Bulls':  '🔷',
+  'Red Bull':      '🔵', 'Williams':     '🩵',
+}
 
 const ADMIN_EMAIL = 'darvaset@gmail.com'
 const ROUNDS = Array.from({ length: 24 }, (_, i) => i + 1)
@@ -156,12 +169,15 @@ function AdminPanel() {
 // ─── Main Profile ──────────────────────────────────────────────────────────
 export default function Profile({ session }) {
   const navigate = useNavigate()
-  const [player,   setPlayer]   = useState(null)
-  const [stats,    setStats]    = useState({ rank: '–', total: 0, exact: 0, best: null })
-  const [history,  setHistory]  = useState([])
-  const [username, setUsername] = useState('')
-  const [saving,   setSaving]   = useState(false)
-  const [saved,    setSaved]    = useState(false)
+  const [player,      setPlayer]      = useState(null)
+  const [stats,       setStats]       = useState({ rank: '–', total: 0, exact: 0, best: null })
+  const [history,     setHistory]     = useState([])
+  const [username,    setUsername]    = useState('')
+  const [favTeam,     setFavTeam]     = useState(null)
+  const [saving,      setSaving]      = useState(false)
+  const [saved,       setSaved]       = useState(false)
+  const [teamSaving,  setTeamSaving]  = useState(false)
+  const [teamSaved,   setTeamSaved]   = useState(false)
 
   const isAdmin = session.user.email === ADMIN_EMAIL
 
@@ -169,7 +185,7 @@ export default function Profile({ session }) {
     const load = async () => {
       const { data: p } = await supabase
         .from('players').select('*').eq('id', session.user.id).single()
-      if (p) { setPlayer(p); setUsername(p.username ?? '') }
+      if (p) { setPlayer(p); setUsername(p.username ?? ''); setFavTeam(p.favorite_team ?? null) }
 
       const { data: myScoresRaw } = await supabase
         .from('scores')
@@ -209,6 +225,15 @@ export default function Profile({ session }) {
     setTimeout(() => setSaved(false), 2500)
   }
 
+  const handleSaveTeam = async (team) => {
+    setFavTeam(team)
+    setTeamSaving(true)
+    await supabase.from('players').update({ favorite_team: team }).eq('id', session.user.id)
+    setTeamSaving(false)
+    setTeamSaved(true)
+    setTimeout(() => setTeamSaved(false), 2000)
+  }
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
   }
@@ -238,6 +263,44 @@ export default function Profile({ session }) {
           <p className="text-primary text-sm font-bold uppercase tracking-widest mb-1">F1 Arsenal Fantasy</p>
           <h1 className="text-2xl font-black italic">{username || 'Sin nickname'}</h1>
           <p className="text-slate-500 text-xs mt-1">{session.user.email}</p>
+        </div>
+
+        {/* Equipo Favorito */}
+        <div className="px-4 mb-6">
+          <label className="text-sm font-bold text-slate-400 ml-1 block mb-2 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm">emoji_events</span>
+            Equipo Favorito
+            {teamSaved && <span className="text-emerald-400 text-xs font-bold ml-1">✓ Guardado</span>}
+            {teamSaving && <span className="text-slate-500 text-xs ml-1">Guardando...</span>}
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {TEAMS_2026.map(team => {
+              const color    = TEAM_COLORS[team] ?? '#888'
+              const isActive = favTeam === team
+              return (
+                <button
+                  key={team}
+                  onClick={() => handleSaveTeam(team)}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                    isActive
+                      ? 'border-white/30 bg-white/10'
+                      : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800'
+                  }`}
+                >
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className={`text-sm font-medium truncate ${
+                    isActive ? 'text-white' : 'text-slate-300'
+                  }`}>{team}</span>
+                  {isActive && (
+                    <span className="material-symbols-outlined text-xs ml-auto shrink-0 text-white">check</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Username */}
