@@ -298,7 +298,7 @@ export default function Standings({ session }) {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === 'mis-carreras' ? (
         /* Mis Carreras */
         <div className="flex flex-col mb-24">
           {myRaces.length === 0 ? (
@@ -436,7 +436,7 @@ export default function Standings({ session }) {
             })
           )}
         </div>
-      )}
+      ) : null}
 
     </div>
   )
