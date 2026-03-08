@@ -504,7 +504,9 @@ export default function RaceDetail({ session }) {
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
           <div className="flex-1 px-3 min-w-0">
-            <h2 className="text-base font-bold leading-tight truncate">{race.name}</h2>
+            <h2 className="text-base font-bold leading-tight truncate">
+              {race.country_flag && <span className="mr-1">{race.country_flag}</span>}{race.name}
+            </h2>
             <p className="text-xs text-slate-400 flex items-center gap-1">
               <span className="material-symbols-outlined text-[12px]">calendar_today</span>
               {new Date(race.race_date).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })}

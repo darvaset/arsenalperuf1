@@ -24,7 +24,7 @@ function PlayerModal({ player, onClose }) {
     const load = async () => {
       const { data } = await supabase
         .from('scores')
-        .select('total_points, detail, races(id, name, race_date, country, round)')
+        .select('total_points, detail, races(id, name, race_date, country, country_flag, round)')
         .eq('player_id', player.id)
       // Ordenar por race_date en el cliente (evita el bug de order con foreign tables)
       const sorted = (data ?? []).sort((a, b) =>
@@ -70,7 +70,7 @@ function PlayerModal({ player, onClose }) {
                 <div key={i} className="flex items-center gap-4 px-5 py-4">
                   <div className="flex flex-col items-center min-w-[32px]">
                     <span className="text-xs font-bold text-slate-500">R{s.races?.round}</span>
-                    <span className="text-lg">{getFlag(s.races?.country)}</span>
+                    <span className="text-lg">{s.races?.country_flag ?? getFlag(s.races?.country)}</span>
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-sm text-slate-100">{s.races?.name}</p>
@@ -147,7 +147,7 @@ export default function Standings({ session }) {
       // Mis carreras
       const { data: myScoresRaw } = await supabase
         .from('scores')
-        .select('total_points, detail, races(id, name, race_date, country, round)')
+        .select('total_points, detail, races(id, name, race_date, country, country_flag, round)')
         .eq('player_id', session.user.id)
       const myScores = (myScoresRaw ?? []).sort((a, b) =>
         new Date(b.races?.race_date) - new Date(a.races?.race_date)
@@ -281,7 +281,7 @@ export default function Standings({ session }) {
                   </div>
                   <div className="text-left">
                     <p className="text-slate-100 font-bold text-sm">
-                      {getFlag(s.races?.country)} {s.races?.name ?? 'Carrera'}
+                    {s.races?.country_flag ?? getFlag(s.races?.country)} {s.races?.name ?? 'Carrera'}
                     </p>
                     <p className="text-slate-400 text-xs">
                       {s.detail?.exact_count ?? 0} exactos · {s.detail?.block_count ?? 0} en bloque

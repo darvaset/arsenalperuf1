@@ -58,7 +58,7 @@ function RaceRow({ score, allScores, session, onNavigate }) {
         {/* Round + flag */}
         <div className="flex flex-col items-center min-w-[36px]">
           <span className="text-[10px] font-bold text-slate-500">R{race?.round}</span>
-          <span className="text-xl">{getFlag(race?.country)}</span>
+          <span className="text-xl">{race?.country_flag ?? getFlag(race?.country)}</span>
         </div>
 
         {/* Race name + stats */}
@@ -180,7 +180,7 @@ export default function PlayerProfile({ session }) {
       // Scores de este jugador con datos de carrera
       const { data: scRaw } = await supabase
         .from('scores')
-        .select('*, races(id, name, race_date, country, round, results)')
+        .select('*, races(id, name, race_date, country, country_flag, round, results)')
         .eq('player_id', playerId)
       const sorted = (scRaw ?? []).sort((a,b) =>
         new Date(a.races?.race_date) - new Date(b.races?.race_date)
