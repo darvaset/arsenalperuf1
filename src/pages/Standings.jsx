@@ -168,7 +168,7 @@ export default function Standings({ session }) {
       {/* Header */}
       <div className="flex flex-col gap-1 px-4 pt-4 pb-0 sticky top-0 bg-background-dark/95 backdrop-blur-md z-10 border-b border-white/5">
         <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-100">Tabla General</h1>
-        <p className="text-primary text-sm font-semibold uppercase tracking-wide">Temporada 2026 · S/400 en juego</p>
+        <p className="text-primary text-sm font-semibold uppercase tracking-wide">Temporada 2026 · S/{players.length * 50} en juego</p>
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 gap-8 mt-2">
