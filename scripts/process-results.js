@@ -41,7 +41,7 @@ const JOLPICA_ID_MAP = {
   antonelli:      'ANT', alonso:  'ALO',   stroll:  'STR',
   gasly:          'GAS', colapinto: 'COL', hulkenberg: 'HUL',
   bortoleto:      'BOR', ocon:    'OCO',   bearman: 'BEA',
-  lawson:         'LAW', lindblad: 'LIN',  hadjar:  'HAD',
+  lawson:         'LAW', lindblad: 'LIN', arvid_lindblad: 'LIN', hadjar: 'HAD',
   sainz:          'SAI', albon:   'ALB',   perez:   'PER',
   bottas:         'BOT',
 }
