@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, TEAM_COLORS } from '../lib/supabase'
 
 // ─── Mapa de banderas por country (viene de Jolpica API) ──────────────────
 const FLAG_MAP = {
@@ -114,21 +114,20 @@ export default function Standings({ session }) {
         .from('scores')
         .select('player_id, total_points, players(id, username)')
 
-      // Lista de todos los jugadores (para incluir los que tienen 0 pts)
       const { data: allPlayers } = await supabase
         .from('players')
-        .select('id, username, email')
+        .select('id, username, email, favorite_team')
 
       if (allScores && allPlayers) {
         const totals = {}
 
-        // Inicializar todos los jugadores con 0
         allPlayers.forEach(p => {
           totals[p.id] = {
-            id:       p.id,
-            username: p.username ?? p.email?.split('@')[0] ?? 'Jugador',
-            pts:      0,
-            races:    0,
+            id:            p.id,
+            username:      p.username ?? p.email?.split('@')[0] ?? 'Jugador',
+            favorite_team: p.favorite_team ?? null,
+            pts:           0,
+            races:         0,
           }
         })
 
@@ -210,15 +209,31 @@ export default function Standings({ session }) {
                   )}
                 </div>
 
-                <div className="size-12 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 text-white font-bold shrink-0">
+                <div
+                  className="size-12 rounded-full flex items-center justify-center text-white font-bold shrink-0 ring-2"
+                  style={{
+                    backgroundColor: p.favorite_team ? (TEAM_COLORS[p.favorite_team] ?? '#e00700') : (isMe ? '#e00700' : '#334155'),
+                    ringColor: p.favorite_team ? (TEAM_COLORS[p.favorite_team] + '55') : 'transparent',
+                  }}
+                >
                   {p.username.slice(0, 2).toUpperCase()}
                 </div>
 
                 <div className="flex flex-col flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-slate-100 text-base font-bold leading-tight truncate">{p.username}</p>
                     {isMe && (
                       <span className="bg-primary text-[10px] px-1.5 py-0.5 rounded-full text-white font-bold uppercase shrink-0">Tú</span>
+                    )}
+                    {p.favorite_team && (
+                      <span
+                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: (TEAM_COLORS[p.favorite_team] ?? '#888') + '25',
+                          color: TEAM_COLORS[p.favorite_team] ?? '#888',
+                          border: `1px solid ${(TEAM_COLORS[p.favorite_team] ?? '#888')}40`,
+                        }}
+                      >{p.favorite_team}</span>
                     )}
                   </div>
                   <p className="text-slate-400 text-xs">

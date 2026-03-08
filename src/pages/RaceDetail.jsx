@@ -181,10 +181,11 @@ function GroupRanking({ scores, results, session, predCount, deadlinePassed, pre
   // Modo EN CURSO: construir lista de jugadores desde predsMap
   if (isLive) {
     const livePlayers = Object.keys(predsMap)
-      .filter(k => !k.includes('_username'))
+      .filter(k => !k.includes('_username') && !k.includes('_team'))
       .map(playerId => ({
         player_id: playerId,
         username:  predsMap[playerId + '_username'] ?? 'Jugador',
+        team:      predsMap[playerId + '_team'] ?? null,
         picks:     predsMap[playerId] ?? [],
       }))
       .sort((a, b) => a.username.localeCompare(b.username))
@@ -221,15 +222,29 @@ function GroupRanking({ scores, results, session, predCount, deadlinePassed, pre
                 className="w-full flex items-center gap-3 p-4 text-left"
                 onClick={() => setExpanded(isOpen ? null : player.player_id)}
               >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 ${
-                  isMe ? 'bg-primary' : 'bg-slate-700'
-                }`}>
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 ring-2"
+                  style={{
+                    backgroundColor: player.team ? (TEAM_COLORS[player.team] ?? '#e00700') : (isMe ? '#e00700' : '#334155'),
+                    ringColor: player.team ? (TEAM_COLORS[player.team] + '55') : 'transparent',
+                  }}
+                >
                   {player.username.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm flex items-center gap-1.5">
+                  <p className="font-bold text-sm flex items-center gap-1.5 flex-wrap">
                     {player.username}
                     {isMe && <span className="text-[9px] bg-primary/20 text-primary px-1 rounded shrink-0">TÚ</span>}
+                    {player.team && (
+                      <span
+                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: (TEAM_COLORS[player.team] ?? '#888') + '25',
+                          color: TEAM_COLORS[player.team] ?? '#888',
+                          border: `1px solid ${(TEAM_COLORS[player.team] ?? '#888')}40`,
+                        }}
+                      >{player.team}</span>
+                    )}
                   </p>
                   <p className="text-xs text-slate-500">{player.picks.length} picks enviados</p>
                 </div>
@@ -418,16 +433,16 @@ export default function RaceDetail({ session }) {
         .eq('race_id', raceId)
         .order('total_points', { ascending: false })
 
-      // Predicciones de todos — fetch con username para ranking expandible
+      // Predicciones de todos — fetch con username/email/team para ranking expandible
       const { data: predsData } = await supabase
         .from('predictions')
-        .select('player_id, picks, players(username)')
+        .select('player_id, picks, players(username, email, favorite_team)')
         .eq('race_id', raceId)
       const predsMap = {}
       predsData?.forEach(p => {
         predsMap[p.player_id] = p.picks
-        // guardar username con key especial
-        predsMap[p.player_id + '_username'] = p.players?.username ?? 'Jugador'
+        predsMap[p.player_id + '_username'] = p.players?.username ?? p.players?.email?.split('@')[0] ?? 'Jugador'
+        predsMap[p.player_id + '_team'] = p.players?.favorite_team ?? null
       })
       setPredsMap(predsMap)
       setPredCount(predsData?.length ?? 0)
