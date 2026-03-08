@@ -1,0 +1,53 @@
+# Cursor / AI IDE Rules — F1 Arsenal Fantasy
+
+## Contexto del proyecto
+App privada de predicciones F1 para ~6-8 amigos. React + Vite + Tailwind + Supabase + Vercel.
+Ver AGENT.md para contexto completo antes de hacer cambios.
+
+## Reglas de código
+
+### Scoring — CRÍTICO
+La función `calculateScore` existe en 3 archivos y deben ser siempre idénticos:
+- `src/lib/supabase.js`
+- `api/process-results.js`
+- `scripts/process-results.js`
+
+La regla de bloques: el piloto debe terminar en el MISMO bloque donde fue predicho.
+Cruzar bloques (predijiste Top5, terminó Mid5) = 0 pts base. Ver `docs/reglas.md`.
+
+### Supabase queries
+- NO usar `.single()` si el row puede no existir → usar `.maybeSingle()`
+- NO usar `.order('foreign_table(column)')` → sort en el cliente
+- NO pedir `country_flag` en JOINs con `races` hasta confirmar que la columna existe
+- SIEMPRE destructurar el error: `const { data, error } = await supabase...` y loggearlo
+
+### Tailwind
+- `bg-surface-dark` NO existe en el config → usar `bg-[#1F1F2B]`
+- `bg-card-dark` SÍ existe
+- `bg-background-dark` SÍ existe
+- Colores de equipo viven en `TEAM_COLORS` exportado desde `src/lib/supabase.js`
+
+### Fechas
+Siempre usar las funciones de `src/lib/supabase.js`:
+- `formatRaceDateTime(dateStr)` → "08 mar · 3:00 AM" (hora local usuario)
+- `formatRaceDate(dateStr)` → "08 mar 2026"
+- `formatRaceTime(dateStr)` → "3:00 AM"
+
+### Iconos de resultado
+Material Symbols Outlined:
+- Exacto: `done_all` + `text-emerald-400`
+- En bloque: `check_circle` + `text-blue-400`
+- Miss: `close` + `text-slate-700`
+
+### Race lifecycle
+```javascript
+const deadline       = new Date(race.race_date).getTime() - 3600000
+const deadlinePassed = Date.now() >= deadline
+const isFinished     = (race.results ?? []).length > 0
+const isLive         = deadlinePassed && !isFinished
+```
+
+### Producción
+- 6 jugadores reales. NO borrar datos de producción.
+- Para testing: `npm run seed:demo` y `npm run clean:demo`
+- Para procesar resultados: `npm run results <ronda>` o Admin Panel en /profile
