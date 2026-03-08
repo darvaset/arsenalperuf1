@@ -93,43 +93,39 @@ export const TEAM_COLORS = {
  * @returns {{ total: number, detail: object[] }}
  */
 export function calculateScore(prediction, results) {
-  const TOP5_DRIVERS = new Set(results.slice(0, 5))
-  const MID_DRIVERS  = new Set(results.slice(5, 10))
-
   let total = 0
   const detail = []
 
   prediction.forEach((driverId, idx) => {
-    const predictedPos = idx + 1
-    const actualPos    = results.indexOf(driverId) + 1 // 0 si no está en top10
-    const isExact      = actualPos === predictedPos
+    const predictedPos  = idx + 1
+    const actualIdx     = results.indexOf(driverId)       // -1 si no está en top10
+    const actualPos     = actualIdx >= 0 ? actualIdx + 1 : 0
+    const isExact       = actualPos === predictedPos && actualPos > 0
+
+    // Regla de bloque: ganas base solo si el piloto termina en el MISMO bloque
+    // que tu slot de predicción. Cruce de bloques = 0 pts.
+    const predictedTop5 = idx < 5
+    const inActualTop5  = actualIdx >= 0 && actualIdx < 5
+    const inActualMid5  = actualIdx >= 5 && actualIdx < 10
 
     let base  = 0
     let bonus = 0
-
-    if (TOP5_DRIVERS.has(driverId)) {
-      base = 10
-    } else if (MID_DRIVERS.has(driverId)) {
-      base = 5
-    }
-
-    if (isExact && actualPos > 0) {
-      bonus = F1_POINTS[actualPos] ?? 0
-    }
+    if (predictedTop5 && inActualTop5)        base = 10
+    else if (!predictedTop5 && inActualMid5)  base = 5
+    if (isExact) bonus = F1_POINTS[predictedPos] ?? 0
 
     const pts = base + bonus
     total += pts
 
     detail.push({
-      position:    predictedPos,
+      position:     predictedPos,
       driverId,
-      actualPos:   actualPos || null,
+      actualPos:    actualPos || null,
       base,
       bonus,
-      points:      pts,
+      points:       pts,
       isExact,
-      inTop5:      TOP5_DRIVERS.has(driverId),
-      inMid:       MID_DRIVERS.has(driverId),
+      inCorrectBlock: (predictedTop5 && inActualTop5) || (!predictedTop5 && inActualMid5),
     })
   })
 

@@ -117,8 +117,14 @@ function RaceRow({ score, allScores, session, onNavigate }) {
                     }`}>
                       {rowPts > 0 ? `+${rowPts}` : '–'}
                     </span>
-                    <span className="shrink-0 text-base">
-                      {isExact ? '🎯' : inBlock ? '✓' : '✗'}
+                    <span className="shrink-0">
+                      {isExact ? (
+                        <span className="material-symbols-outlined text-emerald-400 text-base">done_all</span>
+                      ) : inBlock ? (
+                        <span className="material-symbols-outlined text-blue-400 text-base">check_circle</span>
+                      ) : (
+                        <span className="material-symbols-outlined text-slate-600 text-base">close</span>
+                      )}
                     </span>
                   </div>
                 )
@@ -178,10 +184,11 @@ export default function PlayerProfile({ session }) {
       setPlayer(p)
 
       // Scores de este jugador con datos de carrera
-      const { data: scRaw } = await supabase
+      const { data: scRaw, error: scErr } = await supabase
         .from('scores')
-        .select('*, races(id, name, race_date, country, country_flag, round, results)')
+        .select('*, races(id, name, race_date, country, round, results)')
         .eq('player_id', playerId)
+      if (scErr) console.error('[PlayerProfile] scores error:', scErr.message)
       const sorted = (scRaw ?? []).sort((a,b) =>
         new Date(a.races?.race_date) - new Date(b.races?.race_date)
       )

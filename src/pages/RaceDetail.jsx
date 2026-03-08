@@ -129,9 +129,9 @@ function MyPrediction({ myScore, myPicks, results }) {
               </div>
               <div className="shrink-0">
                 {isExact ? (
-                  <span className="material-symbols-outlined text-emerald-400 fill-icon text-lg">check_circle</span>
+                  <span className="material-symbols-outlined text-emerald-400 text-xl" title="¡Exacto!">done_all</span>
                 ) : inBlock ? (
-                  <span className="material-symbols-outlined text-blue-400 text-lg">check</span>
+                  <span className="material-symbols-outlined text-blue-400 text-lg" title="En bloque">check_circle</span>
                 ) : (
                   <span className="material-symbols-outlined text-slate-700 text-lg">close</span>
                 )}
@@ -352,7 +352,15 @@ function GroupRanking({ scores, results, session, predCount, deadlinePassed, pre
                       <span className="w-7 font-bold shrink-0">P{idx+1}</span>
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getColor(driverId) }} />
                       <span className="flex-1 truncate">{driver?.name ?? driverId}</span>
-                      <span className="shrink-0">{isExact ? 'X' : inBlock ? 'v' : 'x'}</span>
+                      <span className="shrink-0">
+                        {isExact ? (
+                          <span className="material-symbols-outlined text-emerald-400 text-base">done_all</span>
+                        ) : inBlock ? (
+                          <span className="material-symbols-outlined text-blue-400 text-base">check_circle</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-slate-600 text-base">close</span>
+                        )}
+                      </span>
                       {actualPos && !isExact && (
                         <span className="text-slate-600 shrink-0">P{actualPos}</span>
                       )}

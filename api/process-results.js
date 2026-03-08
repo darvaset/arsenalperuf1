@@ -31,19 +31,25 @@ const JOLPICA_ID_MAP = {
 }
 
 function calculateScore(prediction, results) {
-  const top5 = new Set(results.slice(0, 5))
-  const mid5 = new Set(results.slice(5, 10))
   let total  = 0
   const detail = { by_position: [], exact_count: 0, block_count: 0, base_points: 0, bonus_points: 0 }
 
   prediction.forEach((driverId, idx) => {
-    const pos       = idx + 1
-    const actualPos = results.indexOf(driverId) + 1
-    const isExact   = actualPos === pos && actualPos > 0
+    const pos        = idx + 1
+    const actualIdx  = results.indexOf(driverId)        // -1 si no está en top10
+    const actualPos  = actualIdx >= 0 ? actualIdx + 1 : 0
+    const isExact    = actualPos === pos && actualPos > 0
+
+    // ── Regla de bloque: se gana base solo si piloto termina en el MISMO bloque
+    //    que el slot de predicción. Cruce de bloques = 0 pts.
+    const predictedTop5 = idx < 5
+    const inActualTop5  = actualIdx >= 0 && actualIdx < 5
+    const inActualMid5  = actualIdx >= 5 && actualIdx < 10
+
     let base = 0, bonus = 0
-    if (top5.has(driverId))      base = 10
-    else if (mid5.has(driverId)) base = 5
-    if (isExact)                 bonus = F1_POINTS[pos] ?? 0
+    if (predictedTop5 && inActualTop5)        base = 10
+    else if (!predictedTop5 && inActualMid5)  base = 5
+    if (isExact)                               bonus = F1_POINTS[pos] ?? 0
     total += base + bonus
     if (isExact)  detail.exact_count++
     if (base > 0) detail.block_count++

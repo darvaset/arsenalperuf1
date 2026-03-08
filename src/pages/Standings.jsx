@@ -2,6 +2,32 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, TEAM_COLORS } from '../lib/supabase'
 
+const JOLPICA = 'https://api.jolpi.ca/ergast/f1/2026'
+
+const CONSTRUCTOR_COLOR_MAP = {
+  'Red Bull':     'Red Bull',   'McLaren':      'McLaren',
+  'Ferrari':      'Ferrari',    'Mercedes':     'Mercedes',
+  'Aston Martin': 'Aston Martin', 'Alpine':     'Alpine',
+  'Sauber':       'Audi',       'Audi':         'Audi',
+  'Haas F1 Team': 'Haas',       'Haas':         'Haas',
+  'RB':           'Racing Bulls', 'Racing Bulls': 'Racing Bulls',
+  'Williams':     'Williams',   'Cadillac':     'Cadillac',
+}
+
+async function fetchF1Standings() {
+  try {
+    const [drRes, coRes] = await Promise.all([
+      fetch(`${JOLPICA}/driverStandings.json?limit=22`),
+      fetch(`${JOLPICA}/constructorStandings.json?limit=11`),
+    ])
+    const drData = await drRes.json()
+    const coData = await coRes.json()
+    const drivers      = drData.MRData.StandingsTable.StandingsLists[0]?.DriverStandings ?? []
+    const constructors = coData.MRData.StandingsTable.StandingsLists[0]?.ConstructorStandings ?? []
+    return { drivers, constructors }
+  } catch { return { drivers: [], constructors: [] } }
+}
+
 // ─── Mapa de banderas por country (viene de Jolpica API) ──────────────────
 const FLAG_MAP = {
   Australia: '🇦🇺', China: '🇨🇳', Japan: '🇯🇵', Bahrain: '🇧🇭',
@@ -24,7 +50,7 @@ function PlayerModal({ player, onClose }) {
     const load = async () => {
       const { data } = await supabase
         .from('scores')
-        .select('total_points, detail, races(id, name, race_date, country, country_flag, round)')
+        .select('total_points, detail, races(id, name, race_date, country, round)')
         .eq('player_id', player.id)
       // Ordenar por race_date en el cliente (evita el bug de order con foreign tables)
       const sorted = (data ?? []).sort((a, b) =>
@@ -100,12 +126,13 @@ function PlayerModal({ player, onClose }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function Standings({ session }) {
-  const navigate   = useNavigate()
-  const [players,  setPlayers]  = useState([])
-  const [tab,      setTab]      = useState('leaderboard')
-  const [loading,  setLoading]  = useState(true)
-  const [myRaces,  setMyRaces]  = useState([])
-  // Modal eliminado — ahora navega a /player/:id
+  const navigate       = useNavigate()
+  const [players,      setPlayers]      = useState([])
+  const [tab,          setTab]          = useState('leaderboard')
+  const [loading,      setLoading]      = useState(true)
+  const [myRaces,      setMyRaces]      = useState([])
+  const [f1Standings,  setF1Standings]  = useState({ drivers: [], constructors: [] })
+  const [f1Loading,    setF1Loading]    = useState(true)
 
   useEffect(() => {
     const load = async () => {
@@ -145,10 +172,11 @@ export default function Standings({ session }) {
       }
 
       // Mis carreras
-      const { data: myScoresRaw } = await supabase
+      const { data: myScoresRaw, error: myScoresErr } = await supabase
         .from('scores')
-        .select('total_points, detail, races(id, name, race_date, country, country_flag, round)')
+        .select('total_points, detail, races(id, name, race_date, country, round)')
         .eq('player_id', session.user.id)
+      if (myScoresErr) console.error('[Standings] myScores error:', myScoresErr.message)
       const myScores = (myScoresRaw ?? []).sort((a, b) =>
         new Date(b.races?.race_date) - new Date(a.races?.race_date)
       )
@@ -157,6 +185,12 @@ export default function Standings({ session }) {
       setLoading(false)
     }
     load()
+
+    // F1 oficial standings
+    fetchF1Standings().then(data => {
+      setF1Standings(data)
+      setF1Loading(false)
+    })
   }, [session])
 
   const medals  = ['🥇', '🥈', '🥉']
@@ -170,12 +204,17 @@ export default function Standings({ session }) {
         <p className="text-primary text-sm font-semibold uppercase tracking-wide">Temporada 2026 · S/{players.length * 50} en juego</p>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10 gap-8 mt-2">
-          {[['leaderboard', 'Leaderboard'], ['mis-carreras', 'Mis Carreras']].map(([key, label]) => (
+        <div className="flex border-b border-white/10 gap-6 mt-2 overflow-x-auto no-scrollbar">
+          {[
+            ['leaderboard',    'Leaderboard'],
+            ['mis-carreras',   'Mis Carreras'],
+            ['pilotos',        'Pilotos F1'],
+            ['constructores',  'Equipos'],
+          ].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-3 pt-2 text-sm font-bold border-b-[3px] transition-colors ${
+              className={`shrink-0 pb-3 pt-2 text-sm font-bold border-b-[3px] transition-colors ${
                 tab === key
                   ? 'border-primary text-slate-100'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -310,6 +349,91 @@ export default function Standings({ session }) {
                 <span className="text-sm font-normal text-slate-500 ml-1">pts</span>
               </p>
             </div>
+          )}
+        </div>
+      ) : tab === 'pilotos' ? (
+        /* ── Tab: Pilotos F1 ───────────────────────────────────── */
+        <div className="flex flex-col mb-24">
+          {f1Loading ? (
+            <div className="p-12 text-center text-slate-500">Cargando standings oficiales...</div>
+          ) : f1Standings.drivers.length === 0 ? (
+            <div className="p-12 text-center text-slate-500">
+              <span className="material-symbols-outlined text-4xl block mb-2">sports_score</span>
+              <p className="font-medium">Standings disponibles después de la primera carrera</p>
+            </div>
+          ) : (
+            f1Standings.drivers.map((d, i) => {
+              const constructorName = d.Constructors?.[0]?.name ?? ''
+              const teamKey  = CONSTRUCTOR_COLOR_MAP[constructorName] ?? constructorName
+              const color    = TEAM_COLORS[teamKey] ?? '#555'
+              const medals   = ['🥇', '🥈', '🥉']
+              return (
+                <div
+                  key={d.Driver.driverId}
+                  className="flex items-center gap-4 px-4 min-h-[60px] py-3 border-b border-white/5"
+                >
+                  <div className="w-8 flex items-center justify-center shrink-0">
+                    {i < 3 ? (
+                      <span className="text-xl">{medals[i]}</span>
+                    ) : (
+                      <span className="text-slate-500 font-bold">{d.position}</span>
+                    )}
+                  </div>
+                  <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-slate-100">
+                      {d.Driver.givenName} <span className="uppercase">{d.Driver.familyName}</span>
+                    </p>
+                    <p className="text-xs text-slate-500">{constructorName}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-black text-slate-100">{d.points}</p>
+                    <p className="text-[10px] text-slate-500 uppercase">pts</p>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      ) : tab === 'constructores' ? (
+        /* ── Tab: Constructores F1 ────────────────────────────── */
+        <div className="flex flex-col mb-24">
+          {f1Loading ? (
+            <div className="p-12 text-center text-slate-500">Cargando standings oficiales...</div>
+          ) : f1Standings.constructors.length === 0 ? (
+            <div className="p-12 text-center text-slate-500">
+              <span className="material-symbols-outlined text-4xl block mb-2">sports_motorsports</span>
+              <p className="font-medium">Standings disponibles después de la primera carrera</p>
+            </div>
+          ) : (
+            f1Standings.constructors.map((c, i) => {
+              const teamKey = CONSTRUCTOR_COLOR_MAP[c.Constructor?.name] ?? c.Constructor?.name
+              const color   = TEAM_COLORS[teamKey] ?? '#555'
+              const medals  = ['🥇', '🥈', '🥉']
+              return (
+                <div
+                  key={c.Constructor.constructorId}
+                  className="flex items-center gap-4 px-4 min-h-[64px] py-3 border-b border-white/5"
+                >
+                  <div className="w-8 flex items-center justify-center shrink-0">
+                    {i < 3 ? (
+                      <span className="text-xl">{medals[i]}</span>
+                    ) : (
+                      <span className="text-slate-500 font-bold">{c.position}</span>
+                    )}
+                  </div>
+                  <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-slate-100">{c.Constructor.name}</p>
+                    <p className="text-xs text-slate-500">{c.wins} victoria{c.wins !== '1' ? 's' : ''} · {c.Constructor.nationality}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-black text-slate-100">{c.points}</p>
+                    <p className="text-[10px] text-slate-500 uppercase">pts</p>
+                  </div>
+                </div>
+              )
+            })
           )}
         </div>
       )}
