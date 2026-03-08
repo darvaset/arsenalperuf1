@@ -164,11 +164,11 @@ export default function Dashboard({ session }) {
       // Global top 3
       const { data: allScores } = await supabase
         .from('scores')
-        .select('player_id, total_points, players(username)')
+        .select('player_id, total_points, players(username, email)')
       if (allScores) {
         const totals = {}
         allScores.forEach(s => {
-          totals[s.player_id] = totals[s.player_id] || { pts: 0, username: s.players?.username ?? '?' }
+          totals[s.player_id] = totals[s.player_id] || { pts: 0, username: s.players?.username ?? s.players?.email?.split('@')[0] ?? 'Jugador' }
           totals[s.player_id].pts += s.total_points
         })
         const sorted = Object.values(totals).sort((a, b) => b.pts - a.pts).slice(0, 3)

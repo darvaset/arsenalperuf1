@@ -298,7 +298,7 @@ function GroupRanking({ scores, results, session, predCount, deadlinePassed, pre
       {scores.map((s, i) => {
         const isMe     = s.player_id === session.user.id
         const isOpen   = expanded === s.player_id
-        const username = s.players?.username ?? 'Jugador'
+        const username = s.players?.username ?? s.players?.email?.split('@')[0] ?? 'Jugador'
         const detail   = s.detail ?? {}
         const picks    = s.picks ?? []
 
@@ -437,7 +437,7 @@ export default function RaceDetail({ session }) {
       // Scores del grupo
       const { data: scData } = await supabase
         .from('scores')
-        .select('*, players(username)')
+        .select('*, players(username, email)')
         .eq('race_id', raceId)
         .order('total_points', { ascending: false })
 
