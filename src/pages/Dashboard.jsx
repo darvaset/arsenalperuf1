@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, TEAM_COLORS } from '../lib/supabase'
+import { supabase, TEAM_COLORS, formatRaceDateTime } from '../lib/supabase'
 
 const JOLPICA = 'https://api.jolpi.ca/ergast/f1/2026'
 
@@ -247,6 +247,7 @@ export default function Dashboard({ session }) {
                     {nextRace.country_flag ?? '🏁'} {nextRace.name}
                   </h2>
                   <p className="text-slate-400 text-sm">{nextRace.circuit}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{formatRaceDateTime(nextRace.race_date)}</p>
                 </div>
                 <Countdown raceDate={nextRace.race_date} />
 

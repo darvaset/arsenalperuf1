@@ -12,6 +12,28 @@ export const F1_POINTS = {
 }
 
 // ─── Pilotos 2026 (fuente: formula1.com) ────────────────────────────────────
+// ─── Date/Time formatting ─────────────────────────────────────────────────
+// Muestra fecha y hora en zona local del usuario, formato: "08 mar · 3:00 PM"
+export function formatRaceDateTime(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const date = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  return `${date} · ${time}`
+}
+
+// Solo fecha: "08 mar 2026"
+export function formatRaceDate(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// Solo hora AM/PM: "3:00 PM"
+export function formatRaceTime(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
 export const DRIVERS_2026 = [
   // Alpine
   { id: 'GAS', name: 'Gasly',       team: 'Alpine',       number: 10 },

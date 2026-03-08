@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase, DRIVERS_2026 } from '../lib/supabase'
+import { supabase, DRIVERS_2026, formatRaceDateTime } from '../lib/supabase'
 
 const TEAM_COLORS = {
   'Red Bull':     '#3671C6', McLaren: '#FF8000', Ferrari: '#E8002D',
@@ -509,7 +509,7 @@ export default function RaceDetail({ session }) {
             </h2>
             <p className="text-xs text-slate-400 flex items-center gap-1">
               <span className="material-symbols-outlined text-[12px]">calendar_today</span>
-              {new Date(race.race_date).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })}
+              {formatRaceDateTime(race.race_date)}
               {isFinished && (
                 <span className="ml-2 px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-bold rounded uppercase">
                   Finalizada

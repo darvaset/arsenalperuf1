@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, formatRaceDateTime } from '../lib/supabase'
 
 const COUNTRY_FLAGS = {
   Australia: '🇦🇺', China: '🇨🇳', Japan: '🇯🇵', Bahrain: '🇧🇭',
@@ -15,10 +15,7 @@ function getFlag(country) {
   return COUNTRY_FLAGS[country] ?? '🏁'
 }
 
-function formatDate(d) {
-  if (!d) return ''
-  return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
-}
+// formatRaceDateTime importada desde supabase.js
 
 export default function Calendar({ session }) {
   const navigate = useNavigate()
@@ -98,7 +95,7 @@ export default function Calendar({ session }) {
                       <h3 className="font-bold text-lg leading-tight">{race.name}</h3>
                       <p className="text-xs text-slate-400">{race.circuit}</p>
                       <p className="text-xs font-bold text-primary mt-2 uppercase tracking-widest">
-                        {formatDate(race.race_date)}
+                        {formatRaceDateTime(race.race_date)}
                       </p>
                     </div>
                     <button
@@ -126,7 +123,7 @@ export default function Calendar({ session }) {
                   <div className="flex-1 text-left">
                     <h3 className="font-bold text-sm">{race.name}</h3>
                     <p className="text-xs text-slate-500">{race.circuit}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">{formatDate(race.race_date)}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">{formatRaceDateTime(race.race_date)}</p>
                   </div>
                   <span className="px-2 py-1 rounded bg-slate-800 text-[10px] font-bold text-slate-500">✅ COMPLETADA</span>
                 </button>
@@ -147,7 +144,7 @@ export default function Calendar({ session }) {
                   <div className="flex-1 text-left">
                     <h3 className="font-bold text-sm text-slate-200">{race.name}</h3>
                     <p className="text-xs text-slate-500">{race.circuit}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">{formatDate(race.race_date)}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">{formatRaceDateTime(race.race_date)}</p>
                   </div>
                   <span className="px-2 py-1 rounded border border-yellow-700/50 text-[10px] font-bold text-yellow-400 uppercase animate-pulse">
                     🏁 En curso
@@ -169,9 +166,9 @@ export default function Calendar({ session }) {
                 <div className="flex-1 text-left">
                   <h3 className="font-bold text-sm text-slate-200">{race.name}</h3>
                   <p className="text-xs text-slate-500">{race.circuit}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">{formatDate(race.race_date)}</p>
-                </div>
-                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">{formatRaceDateTime(race.race_date)}</p>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-1">
                   {hasPred ? (
                     <span className="px-2 py-1 rounded border border-green-700 text-[10px] font-bold text-green-500 uppercase">✅ Enviada</span>
                   ) : (

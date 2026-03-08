@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase, DRIVERS_2026 } from '../lib/supabase'
+import { supabase, DRIVERS_2026, formatRaceDateTime } from '../lib/supabase'
 
 const TEAM_COLORS = {
   'Red Bull':      '#3671C6',
