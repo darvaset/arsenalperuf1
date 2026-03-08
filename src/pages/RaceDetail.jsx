@@ -310,6 +310,7 @@ export default function RaceDetail({ session }) {
   const [race,      setRace]      = useState(null)
   const [scores,    setScores]    = useState([])
   const [predCount, setPredCount] = useState(0)
+  const [predsMap,  setPredsMap]  = useState({})
   const [myPicks,   setMyPicks]   = useState([])
   const [myScore,   setMyScore]   = useState(null)
   const [tab,       setTab]       = useState('prediction')
@@ -328,13 +329,18 @@ export default function RaceDetail({ session }) {
         .eq('race_id', raceId)
         .order('total_points', { ascending: false })
 
-      // Predicciones de todos — fetch siempre para predCount y para ranking expandible
+      // Predicciones de todos — fetch con username para ranking expandible
       const { data: predsData } = await supabase
         .from('predictions')
-        .select('player_id, picks')
+        .select('player_id, picks, players(username)')
         .eq('race_id', raceId)
       const predsMap = {}
-      predsData?.forEach(p => { predsMap[p.player_id] = p.picks })
+      predsData?.forEach(p => {
+        predsMap[p.player_id] = p.picks
+        // guardar username con key especial
+        predsMap[p.player_id + '_username'] = p.players?.username ?? 'Jugador'
+      })
+      setPredsMap(predsMap)
       setPredCount(predsData?.length ?? 0)
 
       // Enriquecer scores con picks
@@ -374,7 +380,11 @@ export default function RaceDetail({ session }) {
     <div className="flex items-center justify-center h-screen text-slate-500">Carrera no encontrada</div>
   )
 
-  const results = race.results ?? []
+  const results        = race.results ?? []
+  const deadline       = new Date(new Date(race.race_date).getTime() - 3600000)
+  const deadlinePassed = new Date() >= deadline
+  const isFinished     = results.length > 0
+  const isLive         = deadlinePassed && !isFinished
 
   const TABS = [
     { key: 'prediction', label: 'Mi Prediccion', icon: 'sports_score' },
@@ -394,9 +404,14 @@ export default function RaceDetail({ session }) {
             <p className="text-xs text-slate-400 flex items-center gap-1">
               <span className="material-symbols-outlined text-[12px]">calendar_today</span>
               {new Date(race.race_date).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })}
-              {results.length > 0 && (
-                <span className="ml-2 px-1.5 py-0.5 bg-primary/20 text-primary text-[9px] font-bold rounded uppercase">
+              {isFinished && (
+                <span className="ml-2 px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-bold rounded uppercase">
                   Finalizada
+                </span>
+              )}
+              {isLive && (
+                <span className="ml-2 px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[9px] font-bold rounded uppercase animate-pulse">
+                  En Curso
                 </span>
               )}
             </p>
@@ -432,7 +447,14 @@ export default function RaceDetail({ session }) {
           <MyPrediction myScore={myScore} myPicks={myPicks} results={results} />
         )}
         {tab === 'ranking' && (
-          <GroupRanking scores={scores} results={results} session={session} predCount={predCount} />
+          <GroupRanking
+            scores={scores}
+            results={results}
+            session={session}
+            predCount={predCount}
+            deadlinePassed={deadlinePassed}
+            predsMap={predsMap}
+          />
         )}
         {tab === 'results' && (
           <OfficialResults results={results} />
