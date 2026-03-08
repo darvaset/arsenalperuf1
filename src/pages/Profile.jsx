@@ -8,11 +8,86 @@ const TEAMS_2026 = [
   'Racing Bulls', 'Red Bull', 'Williams',
 ]
 
+// Logos oficiales F1 2026 via Formula1.com CDN
 const TEAM_LOGOS = {
-  'Alpine':        '🔵', 'Aston Martin': '🟢', 'Audi':          '⚪',
-  'Cadillac':      '🩷', 'Ferrari':      '🔴', 'Haas':          '⬜',
-  'McLaren':       '🟠', 'Mercedes':     '🩵', 'Racing Bulls':  '🔷',
-  'Red Bull':      '🔵', 'Williams':     '🩵',
+  'Alpine':        'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/alpine',
+  'Aston Martin':  'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/aston-martin',
+  'Audi':          'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/kick-sauber',
+  'Cadillac':      'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/haas',
+  'Ferrari':       'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/ferrari',
+  'Haas':          'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/haas',
+  'McLaren':       'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/mclaren',
+  'Mercedes':      'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/mercedes',
+  'Racing Bulls':  'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/rb',
+  'Red Bull':      'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/red-bull-racing',
+  'Williams':      'https://media.formula1.com/image/upload/f_auto,c_limit,q_auto,w_160/content/dam/fom-website/2018-redesign-assets/team%20logos/williams',
+}
+
+// Fallback: dot de color si el logo no carga
+function TeamLogo({ team, size = 24 }) {
+  const [err, setErr] = useState(false)
+  const color = TEAM_COLORS[team] ?? '#888'
+  if (err || !TEAM_LOGOS[team]) {
+    return <div className="rounded-sm shrink-0" style={{ width: size, height: size * 0.6, backgroundColor: color }} />
+  }
+  return (
+    <img
+      src={TEAM_LOGOS[team]}
+      alt={team}
+      onError={() => setErr(true)}
+      style={{ width: size, height: size * 0.6, objectFit: 'contain' }}
+      className="shrink-0"
+    />
+  )
+}
+
+// Dropdown custom sin search
+function TeamDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const color = value ? (TEAM_COLORS[value] ?? '#888') : null
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-left hover:bg-slate-800 transition-colors"
+      >
+        {value ? (
+          <>
+            <TeamLogo team={value} size={28} />
+            <span className="flex-1 font-medium text-white">{value}</span>
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+          </>
+        ) : (
+          <span className="flex-1 text-slate-400">Seleccionar equipo...</span>
+        )}
+        <span className={`material-symbols-outlined text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-[#1F1F2B] border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
+          {TEAMS_2026.map(team => {
+            const tColor  = TEAM_COLORS[team] ?? '#888'
+            const isActive = value === team
+            return (
+              <button
+                key={team}
+                onPointerDown={() => { onChange(team); setOpen(false) }}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-slate-800 last:border-0 ${
+                  isActive ? 'bg-white/10' : 'hover:bg-white/5'
+                }`}
+              >
+                <TeamLogo team={team} size={28} />
+                <span className={`flex-1 text-sm font-medium ${ isActive ? 'text-white' : 'text-slate-300'}`}>{team}</span>
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tColor }} />
+                {isActive && <span className="material-symbols-outlined text-xs text-white">check</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const ADMIN_EMAIL = 'darvaset@gmail.com'
@@ -273,34 +348,7 @@ export default function Profile({ session }) {
             {teamSaved && <span className="text-emerald-400 text-xs font-bold ml-1">✓ Guardado</span>}
             {teamSaving && <span className="text-slate-500 text-xs ml-1">Guardando...</span>}
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {TEAMS_2026.map(team => {
-              const color    = TEAM_COLORS[team] ?? '#888'
-              const isActive = favTeam === team
-              return (
-                <button
-                  key={team}
-                  onClick={() => handleSaveTeam(team)}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left ${
-                    isActive
-                      ? 'border-white/30 bg-white/10'
-                      : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800'
-                  }`}
-                >
-                  <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className={`text-sm font-medium truncate ${
-                    isActive ? 'text-white' : 'text-slate-300'
-                  }`}>{team}</span>
-                  {isActive && (
-                    <span className="material-symbols-outlined text-xs ml-auto shrink-0 text-white">check</span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
+          <TeamDropdown value={favTeam} onChange={handleSaveTeam} />
         </div>
 
         {/* Username */}
