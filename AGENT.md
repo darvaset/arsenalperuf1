@@ -293,18 +293,17 @@ npm run results <número_de_ronda>
 - Admin panel en /profile para procesar resultados
 - Fechas en hora local del usuario (AM/PM)
 - R1 Australia procesada — scores calculados
+- Automatización del procesamiento de resultados (Vercel Cron cada 30m)
 
-### ⚠️ Pendiente (requiere acción manual en Supabase SQL Editor)
-Ejecutar en este orden:
-1. `supabase/patches/add-favorite-team.sql`
-2. `supabase/patches/add-country-flag.sql`
-3. `supabase/patches/security-pre-prod.sql`
+### ✅ Finalizado (Patches SQL ejecutados)
+1. `supabase/patches/add-favorite-team.sql` — Columna `favorite_team` agregada a `players`.
+2. `supabase/patches/add-country-flag.sql` — Columna `country_flag` agregada a `races` y poblada.
+3. `supabase/patches/security-pre-prod.sql` — RLS con deadline enforcement activo en `predictions`.
 
 ### 🔲 Backlog (no implementado)
 - Push notifications (complejo — Web Push no funciona en iOS Safari)
 - PWA instalable (manifest.json + Vite PWA plugin)
 - Tiebreaker en leaderboard (no definido aún)
-- Automatización del procesamiento de resultados (Vercel Cron)
 
 ---
 

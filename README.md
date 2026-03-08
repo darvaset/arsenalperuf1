@@ -22,107 +22,23 @@ App de polla de F1 para el grupo. Predicción del Top 10 de cada carrera, tabla 
 | Schema de Supabase (SQL) | ✅ Listo |
 | Cliente Jolpica API (`src/lib/jolpica.js`) | ✅ Listo |
 | Script seed de carreras (`scripts/seed-races.js`) | ✅ Listo |
-| Diseño UI (Google Stitch) | 🔲 Pendiente |
-| Deploy en Vercel | 🔲 Pendiente |
-| Página de admin para subir resultados | 🔲 Pendiente |
+| Deploy en Vercel | ✅ Listo |
+| Página de admin para subir resultados | ✅ Listo |
+| Diseño UI final | ✅ Listo |
+| PWA instalable | 🔲 Pendiente |
 
 ---
 
 ## Siguientes pasos
 
-### PASO 1 — Crear proyecto en Supabase
-1. Crear cuenta en [supabase.com](https://supabase.com) → New project
-2. Elegir región más cercana (US East)
-3. Ir a **SQL Editor** → ejecutar todo el contenido de `supabase/schema.sql`
-4. Ir a **Authentication → Settings**:
-   - Confirmar que **Email (Magic Link)** esté habilitado
-   - Deshabilitar "Email + Password" si está activo
-   - En **Site URL** poner `http://localhost:5173`
-5. Ir a **Project Settings → API** → copiar:
-   - `Project URL`
-   - `anon public` key
-   - `service_role` key (solo para el script de seed, nunca al frontend)
+### PASO 1 — Tareas de mantenimiento
+1. Procesar resultados de carreras a medida que ocurran (`npm run results <round>`).
+2. Verificar consistencia de `calculateScore` en `src/lib/supabase.js`, `api/process-results.js` y `scripts/process-results.js`.
 
-### PASO 2 — Configurar variables de entorno
-```bash
-cd /Users/darva/Projects/F1-Arsenal
-cp .env.example .env.local
-```
-Editar `.env.local` con tus tres valores de Supabase:
-```
-VITE_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=tu-anon-key
-SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key
-```
-> ⚠️ La `SUPABASE_SERVICE_ROLE_KEY` solo la usan los scripts de Node. Nunca la pongas en el frontend ni en el repo.
-
-### PASO 3 — Instalar dependencias
-```bash
-npm install
-```
-
-### PASO 4 — Seed del calendario F1 2026 desde Jolpica
-Este script llama a la Jolpica API (sucesor de Ergast) y popula la tabla `races` con las 24 carreras del calendario 2026, incluyendo fechas y horas exactas en UTC.
-
-```bash
-npm run seed:races
-```
-
-Output esperado:
-```
-📡 Fetching F1 2026 schedule from Jolpica...
-✅ Got 24 races from Jolpica
-
-  Round 01 — Australian Grand Prix        📅 Sun, 15 Mar 2026 05:00:00 GMT
-                                           🔒 Deadline: Sun, 15 Mar 2026 04:00:00 GMT
-  Round 02 — Chinese Grand Prix           📅 Sun, 22 Mar 2026 07:00:00 GMT
-  ...
-🏁 Seed completado.
-```
-
-> 💡 El script usa `upsert` — puedes volver a correrlo sin duplicar datos.
-
-### PASO 5 — Correr en local
-```bash
-npm run dev
-```
-Abrir [http://localhost:5173](http://localhost:5173)
-
-### PASO 6 — Invitar jugadores
-En Supabase Dashboard → **Authentication → Users → Invite user**
-- Ingresar el email de cada participante
-- Les llega un magic link — al entrar se crea su perfil automáticamente
-- Cambiar el `display_name` en la tabla `players` desde el dashboard
-
-### PASO 7 — Diseño UI con Google Stitch
-1. Ir a [stitch.withgoogle.com](https://stitch.withgoogle.com)
-2. Pegar el contenido de `docs/stitch-prompt.md` como prompt
-3. Generar las 7 pantallas: Login, Home, Predict, Standings, Race Detail, Profile, Calendar
-4. Exportar y adaptar los componentes React existentes
-
-### PASO 8 — Deploy en Vercel
-1. Subir el proyecto a GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: F1 Arsenal Fantasy — initial setup"
-   git remote add origin https://github.com/tu-usuario/f1-arsenal.git
-   git push -u origin main
-   ```
-2. Ir a [vercel.com](https://vercel.com) → **Add New Project** → importar el repo
-3. En **Environment Variables** agregar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`
-   > ⚠️ NO agregar `SUPABASE_SERVICE_ROLE_KEY` a Vercel — es solo para scripts locales
-4. Click **Deploy** → URL tipo `f1-arsenal.vercel.app`
-5. Volver a Supabase → **Auth → Settings → Site URL** → actualizar con tu URL de Vercel
-6. Agregar la URL de Vercel en **Redirect URLs** también
-
-### PASO 9 — Página de Admin para subir resultados *(pendiente)*
-Pantalla protegida para ti como admin:
-- Ver predicciones recibidas por carrera
-- Subir el resultado real del GP (opción A: manual; opción B: fetch automático desde Jolpica)
-- Disparar cálculo de scores
-
-> Identificar al admin por `player_id` en Supabase y agregar ruta `/admin`
+### PASO 2 — Backlog de funcionalidades
+1. **PWA:** Configurar `vite-plugin-pwa` y `manifest.json` para permitir la instalación en móviles.
+2. **Notificaciones:** Explorar alternativas para avisos de deadline (Telegram bot es una opción viable vs Web Push).
+3. **Tiebreaker:** Definir y programar la lógica de desempate en el leaderboard global.
 
 ---
 
