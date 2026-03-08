@@ -163,28 +163,117 @@ function MyPrediction({ myScore, myPicks, results }) {
 }
 
 // --- Tab: Ranking del grupo -----------------------------------------------
-// FIX: recibe predCount para mostrar estado correcto cuando no hay scores aun
-function GroupRanking({ scores, results, session, predCount }) {
+function GroupRanking({ scores, results, session, predCount, deadlinePassed, predsMap }) {
   const [expanded, setExpanded] = useState(null)
 
-  if (!scores.length) {
+  // EN CURSO: deadline pasó, no hay scores aún pero sí hay predicciones → mostrarlas
+  const isLive = deadlinePassed && !results.length && !scores.length
+
+  if (!scores.length && !isLive) {
     return (
       <div className="px-4 py-10 text-center">
-        {predCount > 0 ? (
-          <>
-            <span className="material-symbols-outlined text-4xl mb-3 block text-amber-400">hourglass_empty</span>
-            <p className="font-bold text-slate-300 mb-1">Esperando resultados</p>
-            <p className="text-sm text-slate-500">
-              {predCount} jugador{predCount !== 1 ? 'es' : ''} {predCount !== 1 ? 'enviaron' : 'envio'} prediccion
-            </p>
-            <p className="text-xs text-slate-600 mt-2">El ranking se publicara cuando se procesen los resultados oficiales</p>
-          </>
-        ) : (
-          <>
-            <span className="material-symbols-outlined text-4xl mb-2 block text-slate-600">group</span>
-            <p className="text-slate-500">Nadie ha jugado esta carrera aun</p>
-          </>
-        )}
+        <span className="material-symbols-outlined text-4xl mb-2 block text-slate-600">group</span>
+        <p className="text-slate-500">Nadie ha jugado esta carrera aun</p>
+      </div>
+    )
+  }
+
+  // Modo EN CURSO: construir lista de jugadores desde predsMap
+  if (isLive) {
+    const livePlayers = Object.keys(predsMap)
+      .filter(k => !k.includes('_username'))
+      .map(playerId => ({
+        player_id: playerId,
+        username:  predsMap[playerId + '_username'] ?? 'Jugador',
+        picks:     predsMap[playerId] ?? [],
+      }))
+      .sort((a, b) => a.username.localeCompare(b.username))
+
+    if (!livePlayers.length) {
+      return (
+        <div className="px-4 py-10 text-center">
+          <span className="material-symbols-outlined text-4xl mb-2 block text-slate-600">group</span>
+          <p className="text-slate-500">Nadie ha jugado esta carrera aun</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="px-4 pb-6 space-y-3 mt-2">
+        {/* Banner informativo */}
+        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+          <span className="material-symbols-outlined text-amber-400 text-lg">visibility</span>
+          <div>
+            <p className="text-xs font-bold text-amber-300">Predicciones de tus compañeros</p>
+            <p className="text-[10px] text-slate-500">El plazo cerró · Los puntos se calculan al finalizar la carrera</p>
+          </div>
+        </div>
+
+        {livePlayers.map(player => {
+          const isMe   = player.player_id === session.user.id
+          const isOpen = expanded === player.player_id
+          return (
+            <div key={player.player_id} className={`rounded-xl overflow-hidden border ${
+              isMe ? 'border-primary/40 bg-primary/5' : 'border-slate-800 bg-slate-800/30'
+            }`}>
+              {/* Header */}
+              <button
+                className="w-full flex items-center gap-3 p-4 text-left"
+                onClick={() => setExpanded(isOpen ? null : player.player_id)}
+              >
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 ${
+                  isMe ? 'bg-primary' : 'bg-slate-700'
+                }`}>
+                  {player.username.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm flex items-center gap-1.5">
+                    {player.username}
+                    {isMe && <span className="text-[9px] bg-primary/20 text-primary px-1 rounded shrink-0">TÚ</span>}
+                  </p>
+                  <p className="text-xs text-slate-500">{player.picks.length} picks enviados</p>
+                </div>
+                <span className={`material-symbols-outlined text-slate-400 transition-transform shrink-0 ${
+                  isOpen ? 'rotate-180' : ''
+                }`}>expand_more</span>
+              </button>
+
+              {/* Picks expandibles */}
+              {isOpen && player.picks.length > 0 && (
+                <div className="border-t border-slate-700/50 px-4 pb-4 pt-3 space-y-1.5">
+                  {/* Top 5 */}
+                  <p className="text-[10px] font-bold text-yellow-400/70 uppercase tracking-wider mb-2">Top 5 · 10 pts c/u</p>
+                  {player.picks.slice(0, 5).map((driverId, idx) => {
+                    const driver = getDriver(driverId)
+                    const color  = getColor(driverId)
+                    return (
+                      <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
+                        <span className="w-7 font-bold text-xs text-slate-500 shrink-0">P{idx+1}</span>
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="flex-1 font-medium text-slate-200 truncate">{driver?.name ?? driverId}</span>
+                        <span className="text-[10px] text-slate-500">{driver?.team}</span>
+                      </div>
+                    )
+                  })}
+                  {/* Mid 5 */}
+                  <p className="text-[10px] font-bold text-blue-400/70 uppercase tracking-wider mb-2 mt-3">P6–P10 · 5 pts c/u</p>
+                  {player.picks.slice(5, 10).map((driverId, idx) => {
+                    const driver = getDriver(driverId)
+                    const color  = getColor(driverId)
+                    return (
+                      <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                        <span className="w-7 font-bold text-xs text-slate-500 shrink-0">P{idx+6}</span>
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="flex-1 font-medium text-slate-200 truncate">{driver?.name ?? driverId}</span>
+                        <span className="text-[10px] text-slate-500">{driver?.team}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     )
   }
