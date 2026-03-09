@@ -1,21 +1,19 @@
 /**
  * api/cron-check-results.js
  *
- * Endpoint de Vercel Cron — se ejecuta cada 30 minutos.
- * Busca la carrera más antigua sin resultados que ya haya terminado
- * y llama a la lógica de procesamiento.
+ * Endpoint de Vercel Cron — se ejecuta cada 30 minutos (vía GitHub Actions).
+ * 1. Busca carreras terminadas sin resultados.
+ * 2. Busca carreras que cierran pronto para avisar a jugadores pendientes.
  */
 
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {
-  // ── Auth check for Vercel Cron (X-Vercel-Cron header) ──────────────────
-  // En desarrollo/test local puedes usar el ADMIN_SECRET
   const cronAuth = req.headers['x-vercel-cron'] === '1'
   const adminAuth = req.query.secret === process.env.ADMIN_SECRET
 
   if (!cronAuth && !adminAuth) {
-    return res.status(401).json({ error: 'Unauthorized. Cron access only.' })
+    return res.status(401).json({ error: 'Unauthorized.' })
   }
 
   const supabase = createClient(
@@ -24,68 +22,50 @@ export default async function handler(req, res) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
+  const logs = []
+  const now = new Date().toISOString()
+
+  // ── TAREA 1: Procesar resultados de carreras terminadas ──────────────────
   try {
-    const now = new Date().toISOString()
-    
-    // ── 1. Buscar la carrera más antigua sin resultados que ya debió terminar ──
-    // Consideramos que terminó si race_date < NOW (o race_date + 2h para ser seguros)
-    const { data: pendingRace, error: raceErr } = await supabase
+    const { data: pendingRace } = await supabase
       .from('races')
       .select('round, name, race_date')
       .is('results', null)
-      .lt('race_date', now) // Ya pasó la hora de largada
+      .lt('race_date', now)
       .order('round', { ascending: true })
       .limit(1)
       .maybeSingle()
 
-    if (raceErr) throw new Error(`Database error: ${raceErr.message}`)
-    
-    if (!pendingRace) {
-      return res.status(200).json({ message: 'No pending races to process at this time.' })
+    if (pendingRace) {
+      logs.push(`Found pending race R${pendingRace.round}. Triggering processing...`)
+      const protocol = req.headers['x-forwarded-proto'] || 'http'
+      const host = req.headers.host
+      const processUrl = `${protocol}://${host}/api/process-results?round=${pendingRace.round}&secret=${process.env.ADMIN_SECRET}`
+      await fetch(processUrl)
+    } else {
+      logs.push('No races to process results for.')
     }
-
-    console.log(`Cron: Found pending race R${pendingRace.round} (${pendingRace.name})`)
-    
-    // ... resto de la lógica de procesamiento ...
-    const protocol = req.headers['x-forwarded-proto'] || 'http'
-    const host = req.headers.host
-    const baseUrl = `${protocol}://${host}`
-    const processUrl = `${baseUrl}/api/process-results?round=${pendingRace.round}&secret=${process.env.ADMIN_SECRET}`
-    
-    await fetch(processUrl)
-    // No bloqueamos el cron si falla Jolpica, seguimos con los recordatorios
   } catch (err) {
-    console.error('Cron Error (Processing):', err.message)
+    logs.push(`Error in processing: ${err.message}`)
   }
 
-  // ── 3. Lógica de Recordatorios de Deadline ──────────────────────────────
+  // ── TAREA 2: Recordatorios de Deadline (carreras futuras) ────────────────
   try {
-    const now = new Date()
-    const twoHoursFromNow = new Date(now.getTime() + (2 * 60 * 60 * 1000)).toISOString()
-
-    // Buscar carrera cuyo deadline (race_date - 1h) sea en las próximas 2 horas
-    // deadline < twoHoursFromNow  =>  race_date < threeHoursFromNow
-    const threeHoursFromNow = new Date(now.getTime() + (3 * 60 * 60 * 1000)).toISOString()
+    const threeHoursFromNow = new Date(Date.now() + (3 * 60 * 60 * 1000)).toISOString()
     
     const { data: upcomingRace } = await supabase
       .from('races')
       .select('id, name, round, race_date')
       .is('results', null)
-      .gt('race_date', now.toISOString())
+      .gt('race_date', now)
       .lt('race_date', threeHoursFromNow)
-      .single()
+      .maybeSingle()
 
     if (upcomingRace) {
-      console.log(`Cron: Deadline approaching for ${upcomingRace.name}`)
+      logs.push(`Deadline approaching for ${upcomingRace.name}. checking players...`)
       
-      // Obtener todos los jugadores
       const { data: players } = await supabase.from('players').select('id')
-      
-      // Obtener quiénes YA predijeron
-      const { data: preds } = await supabase
-        .from('predictions')
-        .select('player_id')
-        .eq('race_id', upcomingRace.id)
+      const { data: preds } = await supabase.from('predictions').select('player_id').eq('race_id', upcomingRace.id)
       
       const predictedPlayerIds = preds?.map(p => p.player_id) || []
       const missingPlayers = players?.filter(p => !predictedPlayerIds.includes(p.id)) || []
@@ -93,8 +73,7 @@ export default async function handler(req, res) {
       if (missingPlayers.length > 0) {
         const reminderRows = []
         for (const player of missingPlayers) {
-          // Verificar si ya le enviamos un recordatorio para esta carrera hoy
-          // para no spamear cada 30 min
+          // Evitar duplicados para la misma carrera en las últimas 24h
           const { count } = await supabase
             .from('notifications')
             .select('*', { count: 'exact', head: true })
@@ -114,14 +93,15 @@ export default async function handler(req, res) {
 
         if (reminderRows.length > 0) {
           await supabase.from('notifications').insert(reminderRows)
-          console.log(`Cron: Sent ${reminderRows.length} deadline reminders.`)
+          logs.push(`Sent ${reminderRows.length} reminders.`)
         }
       }
+    } else {
+      logs.push('No upcoming deadlines in the next 2 hours.')
     }
-
-    return res.status(200).json({ success: true, message: 'Cron job finished correctly.' })
   } catch (err) {
-    console.error('Cron Error (Reminders):', err.message)
-    return res.status(500).json({ error: err.message })
+    logs.push(`Error in reminders: ${err.message}`)
   }
+
+  return res.status(200).json({ success: true, logs })
 }
