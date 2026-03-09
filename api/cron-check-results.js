@@ -51,14 +51,15 @@ export default async function handler(req, res) {
 
   // ── TAREA 2: Recordatorios de Deadline (carreras futuras) ────────────────
   try {
-    const threeHoursFromNow = new Date(Date.now() + (3 * 60 * 60 * 1000)).toISOString()
+    // Buscamos carreras que empiecen en las próximas 6 horas
+    const sixHoursFromNow = new Date(Date.now() + (6 * 60 * 60 * 1000)).toISOString()
     
     const { data: upcomingRace } = await supabase
       .from('races')
       .select('id, name, round, race_date')
       .is('results', null)
       .gt('race_date', now)
-      .lt('race_date', threeHoursFromNow)
+      .lt('race_date', sixHoursFromNow)
       .maybeSingle()
 
     if (upcomingRace) {
