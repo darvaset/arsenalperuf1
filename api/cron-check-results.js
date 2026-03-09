@@ -27,11 +27,14 @@ export default async function handler(req, res) {
 
   // ── TAREA 1: Procesar resultados de carreras terminadas ──────────────────
   try {
+    // Solo intentamos procesar resultados si la carrera empezó hace más de 1 hora
+    const oneHourAgo = new Date(Date.now() - (60 * 60 * 1000)).toISOString()
+
     const { data: pendingRace } = await supabase
       .from('races')
       .select('round, name, race_date')
       .is('results', null)
-      .lt('race_date', now)
+      .lt('race_date', oneHourAgo) // Largada + 1 hora
       .order('round', { ascending: true })
       .limit(1)
       .maybeSingle()
