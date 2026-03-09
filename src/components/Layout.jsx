@@ -13,35 +13,6 @@ const staticNavItems = [
 export default function Layout({ session }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const [unreadCount, setUnreadCount] = useState(0)
-
-  useEffect(() => {
-    if (!session?.user?.id) return
-
-    // Cargar conteo inicial
-    const fetchUnreadCount = async () => {
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('player_id', session.user.id)
-        .eq('is_read', false)
-      setUnreadCount(count || 0)
-    }
-
-    fetchUnreadCount()
-
-    // Suscribirse a cambios en tiempo real
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications', filter: `player_id=eq.${session.user.id}` },
-        () => fetchUnreadCount()
-      )
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [session?.user?.id])
 
   const handlePredict = async () => {
     const now = new Date()
@@ -76,16 +47,7 @@ export default function Layout({ session }) {
       {/* Floating Header (Discreto) */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-background-dark/80 backdrop-blur-md border-b border-white/5 px-4 h-14 flex items-center justify-between max-w-2xl mx-auto">
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-xl font-black italic tracking-tighter text-primary">F1<span className="text-slate-100 not-italic ml-1">ARSENAL</span></span>
-        </Link>
-        
-        <Link to="/notifications" className="relative p-2 text-slate-400 hover:text-white transition-colors">
-          <span className="material-symbols-outlined text-2xl">notifications</span>
-          {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background-dark animate-pulse">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
+          <span className="text-xl font-black italic tracking-tighter text-primary">Arsenal<span className="text-slate-100 not-italic ml-1 uppercase">Peru F1</span></span>
         </Link>
       </header>
 

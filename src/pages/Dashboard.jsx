@@ -104,6 +104,7 @@ export default function Dashboard({ session }) {
   const [hasPrediction, setHasPrediction] = useState(false)
   const [f1Standings,   setF1Standings]   = useState({ drivers: [], constructors: [] })
   const [standingsTab,  setStandingsTab]  = useState('drivers')
+  const [unreadCount,   setUnreadCount]   = useState(0)
 
   const initials = session?.user?.email?.slice(0, 2).toUpperCase() ?? 'F1'
   const [username, setUsername] = useState(
@@ -111,6 +112,28 @@ export default function Dashboard({ session }) {
   )
 
   useEffect(() => {
+    // Conteo de notificaciones
+    const fetchUnreadCount = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('player_id', session.user.id)
+        .eq('is_read', false)
+      setUnreadCount(count || 0)
+    }
+
+    fetchUnreadCount()
+
+    // Suscribirse a cambios en tiempo real
+    const channel = supabase
+      .channel('dashboard-notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `player_id=eq.${session.user.id}` },
+        () => fetchUnreadCount()
+      )
+      .subscribe()
+
     const load = async () => {
       // Username + equipo favorito desde tabla players
       const { data: player } = await supabase
@@ -178,6 +201,8 @@ export default function Dashboard({ session }) {
       setLoading(false)
     }
     load()
+
+    return () => { supabase.removeChannel(channel) }
   }, [session])
 
   const medals = ['🥇', '🥈', '🥉']
@@ -218,8 +243,16 @@ export default function Dashboard({ session }) {
             </div>
           </div>
         </div>
-        <button className="size-10 flex items-center justify-center rounded-full bg-slate-800/50">
+        <button 
+          onClick={() => navigate('/notifications')}
+          className="relative size-10 flex items-center justify-center rounded-full bg-slate-800/50 hover:bg-slate-800 transition-colors"
+        >
           <span className="material-symbols-outlined text-slate-100">notifications</span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background-dark animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
       </header>
 
