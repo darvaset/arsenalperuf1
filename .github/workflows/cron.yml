@@ -1,0 +1,20 @@
+name: F1 Arsenal Cron Job
+
+on:
+  schedule:
+    # Corre cada 30 minutos
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Permite correrlo manualmente desde GitHub para probar
+
+jobs:
+  ping_api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping F1 Arsenal API
+        run: |
+          # Solo ejecutamos el cron los domingos (día de carrera) 
+          # para no gastar minutos de GitHub Actions innecesariamente
+          # (Opcional, pero recomendado: solo corre los domingos UTC)
+          # if [ $(date +%u) -eq 7 ]; then
+            curl -X GET "https://arsenalperuf1.vercel.app/api/cron-check-results?secret=${{ secrets.ADMIN_SECRET }}"
+          # fi
