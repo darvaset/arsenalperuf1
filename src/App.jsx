@@ -12,6 +12,7 @@ import RaceDetail from './pages/RaceDetail'
 import Profile       from './pages/Profile'
 import PlayerProfile from './pages/PlayerProfile'
 import Admin         from './pages/Admin'
+import Notifications from './pages/Notifications'
 
 export default function App() {
   const [session, setSession] = useState(undefined) // undefined = loading
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="standings"   element={<Standings session={session} />} />
           <Route path="race/:raceId"    element={<RaceDetail    session={session} />} />
           <Route path="player/:playerId" element={<PlayerProfile session={session} />} />
+          <Route path="notifications"   element={<Notifications session={session} />} />
           <Route path="admin"             element={<Admin         session={session} />} />
           <Route path="profile"     element={<Profile   session={session} />} />
           <Route path="*"           element={<Navigate to="/" />} />

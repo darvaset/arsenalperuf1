@@ -45,39 +45,83 @@ export default async function handler(req, res) {
     }
 
     console.log(`Cron: Found pending race R${pendingRace.round} (${pendingRace.name})`)
-
-    // ── 2. Llamar internamente al procesador de resultados ──────────────────
-    // Nota: En Vercel no podemos hacer un "fetch" a nosotros mismos fácilmente sin la URL completa,
-    // así que lo ideal sería mover la lógica de process-results.js a una función compartida
-    // o simplemente importar el handler si es posible (más complejo).
-    // Por simplicidad en este MVP, haremos un fetch a la URL de producción o usaremos el ADMIN_SECRET.
     
+    // ... resto de la lógica de procesamiento ...
     const protocol = req.headers['x-forwarded-proto'] || 'http'
     const host = req.headers.host
     const baseUrl = `${protocol}://${host}`
     const processUrl = `${baseUrl}/api/process-results?round=${pendingRace.round}&secret=${process.env.ADMIN_SECRET}`
-
-    console.log(`Cron: Triggering ${processUrl}`)
     
-    const response = await fetch(processUrl)
-    const resultData = await response.json()
+    await fetch(processUrl)
+    // No bloqueamos el cron si falla Jolpica, seguimos con los recordatorios
+  } catch (err) {
+    console.error('Cron Error (Processing):', err.message)
+  }
 
-    if (response.ok) {
-      return res.status(200).json({
-        message: `Cron successfully triggered processing for R${pendingRace.round}`,
-        details: resultData
-      })
-    } else {
-      // Si falla (ej. Jolpica no tiene resultados aún), devolvemos 200 para que el cron no marque error,
-      // pero informamos que aún no hay datos.
-      return res.status(200).json({
-        message: `Cron triggered R${pendingRace.round} but processing returned info/error (normal if results not ready).`,
-        api_response: resultData
-      })
+  // ── 3. Lógica de Recordatorios de Deadline ──────────────────────────────
+  try {
+    const now = new Date()
+    const twoHoursFromNow = new Date(now.getTime() + (2 * 60 * 60 * 1000)).toISOString()
+
+    // Buscar carrera cuyo deadline (race_date - 1h) sea en las próximas 2 horas
+    // deadline < twoHoursFromNow  =>  race_date < threeHoursFromNow
+    const threeHoursFromNow = new Date(now.getTime() + (3 * 60 * 60 * 1000)).toISOString()
+    
+    const { data: upcomingRace } = await supabase
+      .from('races')
+      .select('id, name, round, race_date')
+      .is('results', null)
+      .gt('race_date', now.toISOString())
+      .lt('race_date', threeHoursFromNow)
+      .single()
+
+    if (upcomingRace) {
+      console.log(`Cron: Deadline approaching for ${upcomingRace.name}`)
+      
+      // Obtener todos los jugadores
+      const { data: players } = await supabase.from('players').select('id')
+      
+      // Obtener quiénes YA predijeron
+      const { data: preds } = await supabase
+        .from('predictions')
+        .select('player_id')
+        .eq('race_id', upcomingRace.id)
+      
+      const predictedPlayerIds = preds?.map(p => p.player_id) || []
+      const missingPlayers = players?.filter(p => !predictedPlayerIds.includes(p.id)) || []
+
+      if (missingPlayers.length > 0) {
+        const reminderRows = []
+        for (const player of missingPlayers) {
+          // Verificar si ya le enviamos un recordatorio para esta carrera hoy
+          // para no spamear cada 30 min
+          const { count } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('player_id', player.id)
+            .eq('title', '⏳ ¡Última oportunidad!')
+            .ilike('message', `%${upcomingRace.name}%`)
+
+          if (count === 0) {
+            reminderRows.push({
+              player_id: player.id,
+              title:     '⏳ ¡Última oportunidad!',
+              message:   `El deadline para el ${upcomingRace.name} cierra pronto. ¡Envía tu Top 10 ya!`,
+              link:      `/predict/${upcomingRace.id}`,
+            })
+          }
+        }
+
+        if (reminderRows.length > 0) {
+          await supabase.from('notifications').insert(reminderRows)
+          console.log(`Cron: Sent ${reminderRows.length} deadline reminders.`)
+        }
+      }
     }
 
+    return res.status(200).json({ success: true, message: 'Cron job finished correctly.' })
   } catch (err) {
-    console.error('Cron Error:', err.message)
+    console.error('Cron Error (Reminders):', err.message)
     return res.status(500).json({ error: err.message })
   }
 }

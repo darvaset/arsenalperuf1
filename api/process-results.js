@@ -138,6 +138,7 @@ export default async function handler(req, res) {
 
     // ── 5. Calculate & save scores ─────────────────────────────────────────
     const scoreRows = []
+    const notificationRows = []
     const leaderboard = []
 
     for (const pred of predictions) {
@@ -145,11 +146,24 @@ export default async function handler(req, res) {
       const username = pred.players?.username ?? pred.players?.email?.split('@')[0] ?? 'Jugador'
       scoreRows.push({ race_id: race.id, player_id: pred.player_id, total_points: total, detail })
       leaderboard.push({ username, total, exact: detail.exact_count, block: detail.block_count })
+      
+      // ── Notificación: ¡Resultados Listos! ──────────────────────────────
+      notificationRows.push({
+        player_id: pred.player_id,
+        title:     '🏁 ¡Resultados Listos!',
+        message:   `Has sumado ${total} puntos en el ${race.name}.`,
+        link:      `/race/${roundNum}`,
+      })
     }
 
     const { error: scoreErr } = await supabase
       .from('scores').upsert(scoreRows, { onConflict: 'race_id,player_id' })
     if (scoreErr) throw new Error(`Failed to save scores: ${scoreErr.message}`)
+
+    // ── Insertar notificaciones ──────────────────────────────────────────
+    if (notificationRows.length > 0) {
+      await supabase.from('notifications').insert(notificationRows)
+    }
 
     leaderboard.sort((a, b) => b.total - a.total)
     info(`Scores saved for ${predictions.length} player(s)`)

@@ -5,7 +5,15 @@
 
 ---
 
-## ¿Qué es este proyecto?
+## 🛑 SEGURIDAD CRÍTICA — REGLAS DEL AGENTE
+
+1. **PRODUCCIÓN ES SAGRADA:** El proyecto de Supabase `dtpsvlwqrlbsntpunest` es **PRODUCCIÓN** con 6 jugadores reales y dinero en juego (S/300).
+2. **SCRIPTS PROHIBIDOS EN PROD:** Nunca ejecutes `npm run seed:demo`, `npm run clean:demo` o `npm run reset:prod` apuntando a la URL de producción.
+3. **VERIFICACIÓN OBLIGATORIA:** Antes de correr cualquier script de `scripts/`, verifica el archivo `.env.local`. Si la URL es la de producción, **DETENTE**.
+4. **ENTORNO DE PRUEBAS:** Para testear lógica destructiva, solicita al usuario una base de datos de Staging o utiliza un proyecto de Supabase local/alternativo.
+5. **ROLLBACK:** Si accidentalmente se modifica algo, usa `npm run seed:races` para restaurar el calendario oficial y `npm run results <round>` para restaurar los scores de rondas ya terminadas.
+
+---
 
 Aplicación web privada de predicciones F1 para un grupo de amigos (~6-8 personas).
 Cada participante predice el Top 10 de cada carrera antes del deadline (1h antes).
