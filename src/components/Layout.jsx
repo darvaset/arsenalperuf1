@@ -13,14 +13,40 @@ const staticNavItems = [
 export default function Layout({ session }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+
+    const fetchUnreadCount = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('player_id', session.user.id)
+        .eq('is_read', false)
+      setUnreadCount(count || 0)
+    }
+
+    fetchUnreadCount()
+
+    const channel = supabase
+      .channel('global-notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `player_id=eq.${session.user.id}` },
+        () => fetchUnreadCount()
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [session?.user?.id])
 
   const handlePredict = async () => {
     const now = new Date()
-    // Buscar la carrera más próxima sin resultados (futura) cuya deadline no haya pasado
     const { data: races } = await supabase
       .from('races')
       .select('id, race_date, results')
-      .is('results', null)           // sin resultados = no terminada
+      .is('results', null)
       .gte('race_date', now.toISOString())
       .order('race_date', { ascending: true })
       .limit(1)
@@ -33,7 +59,6 @@ export default function Layout({ session }) {
       }
     }
 
-    // Si no hay carrera abierta, ir a calendario
     navigate('/calendar')
   }
 
@@ -44,10 +69,19 @@ export default function Layout({ session }) {
       {/* Red top bar */}
       <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-red-800 to-primary z-50" />
 
-      {/* Floating Header (Discreto) */}
+      {/* Floating Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-background-dark/80 backdrop-blur-md border-b border-white/5 px-4 h-14 flex items-center justify-between max-w-2xl mx-auto">
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-xl font-black italic tracking-tighter text-primary">Arsenal<span className="text-slate-100 not-italic ml-1 uppercase">Peru F1</span></span>
+          <span className="text-xl font-black italic tracking-tighter text-primary">ARSENAL<span className="text-slate-100 not-italic ml-1 uppercase">Peru F1</span></span>
+        </Link>
+
+        <Link to="/notifications" className="relative size-10 flex items-center justify-center rounded-full bg-slate-800/30 hover:bg-slate-800/50 transition-colors">
+          <span className="material-symbols-outlined text-slate-100 text-2xl">notifications</span>
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background-dark animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </Link>
       </header>
 
